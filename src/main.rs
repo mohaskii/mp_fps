@@ -1,56 +1,15 @@
-//! This example showcases a 3D first-person camera.
-//!
-//! The setup presented here is a very common way of organizing a first-person game
-//! where the player can see their own arms. We use two industry terms to differentiate
-//! the kinds of models we have:
-//!
-//! - The *view model* is the model that represents the player's body.
-//! - The *world model* is everything else.
-//!
-//! ## Motivation
-//!
-//! The reason for this distinction is that these two models should be rendered with different field of views (FOV).
-//! The view model is typically designed and animated with a very specific FOV in mind, so it is
-//! generally *fixed* and cannot be changed by a player. The world model, on the other hand, should
-//! be able to change its FOV to accommodate the player's preferences for the following reasons:
-//! - *Accessibility*: How prone is the player to motion sickness? A wider FOV can help.
-//! - *Tactical preference*: Does the player want to see more of the battlefield?
-//! Or have a more zoomed-in view for precision aiming?
-//! - *Physical considerations*: How well does the in-game FOV match the player's real-world FOV?
-//! Are they sitting in front of a monitor or playing on a TV in the living room? How big is the screen?
-//!
-//! ## Implementation
-//!
-//! The `Player` is an entity holding two cameras, one for each model. The view model camera has a fixed
-//! FOV of 70 degrees, while the world model camera has a variable FOV that can be changed by the player.
-//!
-//! We use different `RenderLayers` to select what to render.
-//!
-//! - The world model camera has no explicit `RenderLayers` component, so it uses the layer 0.
-//! All static objects in the scene are also on layer 0 for the same reason.
-//! - The view model camera has a `RenderLayers` component with layer 1, so it only renders objects
-//! explicitly assigned to layer 1. The arm of the player is one such object.
-//! The order of the view model camera is additionally bumped to 1 to ensure it renders on top of the world model.
-//! - The light source in the scene must illuminate both the view model and the world model, so it is
-//! assigned to both layers 0 and 1.
-//!
-//! ## Controls
-//!
-//! | Key Binding          | Action        |
-//! |:---------------------|:--------------|
-//! | mouse                | Look around   |
-//! | arrow up             | Decrease FOV  |
-//! | arrow down           | Increase FOV  |
-
 use bevy::color::palettes::tailwind;
 use bevy::input::mouse::MouseMotion;
 use bevy::pbr::NotShadowCaster;
 use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
+use bevy::window::{CursorGrabMode, PrimaryWindow};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .init_resource::<ProposedPlayerPosition>()
+        .init_resource::<HasCollision>() // Ajoutez cette ligne
         .add_systems(
             Startup,
             (
@@ -58,10 +17,28 @@ fn main() {
                 spawn_world_model,
                 spawn_lights,
                 spawn_text,
+                spawn_crosshair,
+                cursor_grab,
             ),
         )
-        .add_systems(Update, (move_player, player_position_control))
+        .add_systems(
+            Update,
+            (
+                move_player,
+                player_position_control,
+                check_collision_system,
+                apply_movement,
+            )
+                .chain(),
+        ) // Modifiez cette ligne
         .run();
+}
+#[derive(Component)]
+struct Wall;
+
+#[derive(Component, Clone)]
+struct Collider {
+    size: Vec3,
 }
 
 #[derive(Debug, Component)]
@@ -69,7 +46,10 @@ struct Player;
 
 #[derive(Debug, Component)]
 struct WorldModelCamera;
-
+#[derive(Resource, Default)]
+struct ProposedPlayerPosition(Vec3);
+#[derive(Resource, Component, Default)]
+struct HasCollision(bool);
 /// Used implicitly by all entities without a `RenderLayers` component.
 /// Our world model camera and all objects other than the player are on this layer.
 /// The light source belongs to both layers.
@@ -78,6 +58,17 @@ const DEFAULT_RENDER_LAYER: usize = 0;
 /// Used by the view model camera and the player's arm.
 /// The light source belongs to both layers.
 const VIEW_MODEL_RENDER_LAYER: usize = 1;
+fn check_collision(
+    player_position: Vec3,
+    player_size: Vec3,
+    wall_position: Vec3,
+    wall_size: Vec3,
+) -> bool {
+    let collision_factor = 0.7; // Réduction de 20% de la distance de collision
+    let min_distance = (player_size + wall_size) * 0.5 * collision_factor;
+    let actual_distance = player_position - wall_position;
+    actual_distance.abs().cmple(min_distance).all()
+}
 
 fn spawn_view_model(
     mut commands: Commands,
@@ -90,6 +81,9 @@ fn spawn_view_model(
     commands
         .spawn((
             Player,
+            Collider {
+                size: Vec3::new(1.0, 1.0, 1.0),
+            }, // Ajoutez le collider ici
             SpatialBundle {
                 transform: Transform::from_xyz(0.0, 10.0, 0.0),
                 ..default()
@@ -149,15 +143,15 @@ fn spawn_world_model(
 ) {
     // Définir la carte du labyrinthe
     let maze = vec![
-        vec![1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-        vec![1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-        vec![1, 0, 1, 1, 1, 1, 1, 1, 0, 1],
-        vec![1, 0, 1, 0, 0, 0, 0, 1, 0, 1],
-        vec![1, 0, 1, 0, 1, 1, 0, 1, 0, 1],
-        vec![1, 0, 1, 0, 1, 1, 0, 1, 0, 1],
-        vec![1, 0, 1, 0, 0, 0, 0, 1, 0, 1],
-        vec![1, 0, 1, 1, 1, 1, 1, 1, 0, 1],
-        vec![1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+        vec![0, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+        vec![0, 0, 1, 1, 1, 1, 1, 1, 0, 1],
+        vec![0, 0, 1, 0, 0, 0, 0, 1, 0, 1],
+        vec![0, 0, 1, 0, 1, 1, 0, 1, 0, 1],
+        vec![0, 0, 1, 0, 1, 1, 0, 1, 0, 1],
+        vec![0, 0, 1, 0, 0, 0, 0, 1, 0, 1],
+        vec![0, 0, 1, 1, 1, 1, 1, 1, 0, 1],
+        vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
         vec![1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
     ];
 
@@ -183,12 +177,18 @@ fn spawn_world_model(
     for (z, row) in maze.iter().enumerate() {
         for (x, &cell) in row.iter().enumerate() {
             if cell == 1 {
-                commands.spawn(PbrBundle {
-                    mesh: cube.clone(),
-                    material: cube_material.clone(),
-                    transform: Transform::from_xyz(x as f32 + 0.5, 0.5, z as f32 + 0.5),
-                    ..default()
-                });
+                commands.spawn((
+                    PbrBundle {
+                        mesh: cube.clone(),
+                        material: cube_material.clone(),
+                        transform: Transform::from_xyz(x as f32 + 0.5, 0.5, z as f32 + 0.5),
+                        ..default()
+                    },
+                    Wall,
+                    Collider {
+                        size: Vec3::new(1.0, 1.0, 1.0),
+                    }, // Ajoutez le collider ici
+                ));
             }
         }
     }
@@ -250,62 +250,125 @@ fn move_player(
     }
 }
 
-// fn change_fov(
-//     input: Res<ButtonInput<KeyCode>>,
-//     mut world_model_projection: Query<&mut Projection, With<WorldModelCamera>>,
-// ) {
-//     let mut projection = world_model_projection.single_mut();
-//     let Projection::Perspective(ref mut perspective) = projection.as_mut() else {
-//         unreachable!(
-//             "The `Projection` component was explicitly built with `Projection::Perspective`"
-//         );
-//     };
-//     if input.pressed(KeyCode::ArrowUp) {
-//         perspective.fov -= 1.0_f32.to_radians();
-//         perspective.fov = perspective.fov.max(20.0_f32.to_radians());
-//     };
-//     if input.pressed(KeyCode::ArrowDown) {
-//         perspective.fov += 1.0_f32.to_radians();
-//         perspective.fov = perspective.fov.min(160.0_f32.to_radians());
-//     };
-// }
 fn player_position_control(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
-    mut player_query: Query<&mut Transform, With<Player>>,
+    player_query: Query<&Transform, With<Player>>,
+    mut proposed_position: ResMut<ProposedPlayerPosition>,
 ) {
-    if let Ok(mut transform) = player_query.get_single_mut() {
-        // Définir la vitesse de déplacement
+    if let Ok(player_transform) = player_query.get_single() {
         let speed = 10.0;
         let delta = time.delta_seconds();
 
-        // Calculer le vecteur de déplacement
         let mut movement = Vec3::ZERO;
 
         if keyboard_input.pressed(KeyCode::ArrowUp) {
-            movement += transform.forward().as_vec3();
+            movement += player_transform.forward().as_vec3();
         }
         if keyboard_input.pressed(KeyCode::ArrowDown) {
-            movement += transform.back().as_vec3();
+            movement += player_transform.back().as_vec3();
         }
         if keyboard_input.pressed(KeyCode::ArrowLeft) {
-            movement += transform.left().as_vec3();
+            movement += player_transform.left().as_vec3();
         }
         if keyboard_input.pressed(KeyCode::ArrowRight) {
-            movement += transform.right().as_vec3();
+            movement += player_transform.right().as_vec3();
         }
 
-        // Normaliser le vecteur de mouvement pour éviter une vitesse plus rapide en diagonale
         if movement != Vec3::ZERO {
             movement = movement.normalize();
         }
 
-        // Appliquer le mouvement en tenant compte de la vitesse et du temps delta
-        transform.translation += movement * speed * delta;
-
-        // Optionnel : Limiter le mouvement vertical
-        // transform.translation.y = 1.0; // Maintient une hauteur constante
-
-        // Afficher la nouvelle position (pour le débogage)
+        proposed_position.0 = player_transform.translation + movement * speed * delta;
+        proposed_position.0.y = 1.0;
     }
+}
+fn check_collision_system(
+    mut query: ParamSet<(
+        Query<&Collider, With<Player>>,
+        Query<(&Transform, &Collider), With<Wall>>,
+    )>,
+    mut has_collision: ResMut<HasCollision>,
+    proposed_position: Res<ProposedPlayerPosition>,
+) {
+    let plyer_collider = query.p0().single().clone();
+    let wall_query = query.p1();
+    for (wall_transform, wall_collider) in wall_query.iter() {
+        if check_collision(
+            proposed_position.0,
+            plyer_collider.size,
+            wall_transform.translation,
+            wall_collider.size,
+        ) {
+            has_collision.0 = true;
+            return;
+        }
+    }
+    has_collision.0 = false;
+}
+fn apply_movement(
+    mut query: Query<&mut Transform, With<Player>>,
+    proposed_position: Res<ProposedPlayerPosition>,
+    has_collision: Res<HasCollision>,
+) {
+    if let Ok(mut player_transform) = query.get_single_mut() {
+        if has_collision.0 {
+            // Calculer la direction de la collision
+            let push_direction = (player_transform.translation - proposed_position.0).normalize();
+
+            // Définir une distance de repoussement
+            let push_distance = 0.001; // Ajustez cette valeur selon le besoin
+
+            // Repousser le joueur légèrement pour sortir de la collision
+            player_transform.translation += push_direction * push_distance;
+        } else {
+            // Appliquer le mouvement proposé s'il n'y a pas de collision
+            player_transform.translation = proposed_position.0;
+        }
+    }
+}
+fn spawn_crosshair(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    // mut materials: ResMut<Assets<ColorMaterial>>,
+) {
+    let crosshair :Handle<Image> = asset_server.load("crosshair.png");
+    // commands.spawn(UiCameraBundle::default());
+
+    // Crée un élément simple (un carré blanc) pour représenter le viseur
+    let kiki = ImageBundle {
+        style: Style {
+            align_self: AlignSelf::Center,
+            position_type: PositionType::Absolute,
+            margin: UiRect::all(Val::Auto),
+            width: Val::Px(100.0), // Taille du viseur
+
+            height: Val::Px(100.0),
+            // Taille du viseur
+            ..Default::default()
+        },
+        // image_size:UiImageSize::new(Val::Px(50.0), Val::Px(50.0)),
+        image: UiImage::new(crosshair),
+
+       // Couleur du viseur
+        ..Default::default()
+    };
+    // kiki.lao;
+    commands.spawn(kiki);
+}
+fn cursor_grab(
+    mut q_windows: Query<&mut Window, With<PrimaryWindow>>,
+) {
+    let mut primary_window = q_windows.single_mut();
+
+    // if you want to use the cursor, but not let it leave the window,
+    // use `Confined` mode:
+    primary_window.cursor.grab_mode = CursorGrabMode::Confined;
+
+    // for a game that doesn't use the cursor (like a shooter):
+    // use `Locked` mode to keep the cursor in one place
+    primary_window.cursor.grab_mode = CursorGrabMode::Locked;
+
+    // also hide the cursor
+    primary_window.cursor.visible = false;
 }
