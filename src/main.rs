@@ -4,17 +4,19 @@ use bevy::pbr::NotShadowCaster;
 use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
 use bevy::window::{CursorGrabMode, PrimaryWindow};
+use mp_fps::{Collider, MapPlugin, Wall};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .init_resource::<ProposedPlayerPosition>()
-        .init_resource::<HasCollision>() // Ajoutez cette ligne
+        .init_resource::<HasCollision>()
+        .add_plugins(MapPlugin) // Ajoutez cette ligne
         .add_systems(
             Startup,
             (
                 spawn_view_model,
-                spawn_world_model,
+                // spawn_world_model,
                 spawn_lights,
                 spawn_text,
                 spawn_crosshair,
@@ -33,13 +35,12 @@ fn main() {
         ) // Modifiez cette ligne
         .run();
 }
-#[derive(Component)]
-struct Wall;
 
-#[derive(Component, Clone)]
-struct Collider {
-    size: Vec3,
-}
+
+// #[derive(Component, Clone)]
+// struct Collider {
+//     size: Vec3,
+// }
 
 #[derive(Debug, Component)]
 struct Player;
@@ -85,7 +86,7 @@ fn spawn_view_model(
                 size: Vec3::new(1.0, 1.0, 1.0),
             }, // Ajoutez le collider ici
             SpatialBundle {
-                transform: Transform::from_xyz(0.0, 10.0, 0.0),
+                transform: Transform::from_xyz((18./2.)+1.5, 2.0, (14.0/2.)+1.5),
                 ..default()
             },
         ))
@@ -134,64 +135,6 @@ fn spawn_view_model(
                 NotShadowCaster,
             ));
         });
-}
-
-fn spawn_world_model(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
-    // Définir la carte du labyrinthe
-    let maze = vec![
-        vec![0, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-        vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-        vec![0, 0, 1, 1, 1, 1, 1, 1, 0, 1],
-        vec![0, 0, 1, 0, 0, 0, 0, 1, 0, 1],
-        vec![0, 0, 1, 0, 1, 1, 0, 1, 0, 1],
-        vec![0, 0, 1, 0, 1, 1, 0, 1, 0, 1],
-        vec![0, 0, 1, 0, 0, 0, 0, 1, 0, 1],
-        vec![0, 0, 1, 1, 1, 1, 1, 1, 0, 1],
-        vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-        vec![1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-    ];
-
-    // Calculer la taille du sol en fonction de la taille de la matrice du labyrinthe
-    let maze_width = maze[0].len() as f32;
-    let maze_height = maze.len() as f32;
-
-    // Créer le sol
-    let floor = meshes.add(Plane3d::new(Vec3::Y, Vec2::new(maze_width, maze_height)));
-    let floor_material = materials.add(Color::WHITE);
-
-    commands.spawn(PbrBundle {
-        mesh: floor,
-        material: floor_material,
-        transform: Transform::from_xyz(maze_width / 2.0, 0.0, maze_height / 2.0),
-        ..default()
-    });
-
-    // Créer les cubes pour le labyrinthe
-    let cube = meshes.add(Cuboid::new(1.0, 1.0, 1.0));
-    let cube_material = materials.add(Color::BLACK);
-
-    for (z, row) in maze.iter().enumerate() {
-        for (x, &cell) in row.iter().enumerate() {
-            if cell == 1 {
-                commands.spawn((
-                    PbrBundle {
-                        mesh: cube.clone(),
-                        material: cube_material.clone(),
-                        transform: Transform::from_xyz(x as f32 + 0.5, 0.5, z as f32 + 0.5),
-                        ..default()
-                    },
-                    Wall,
-                    Collider {
-                        size: Vec3::new(1.0, 1.0, 1.0),
-                    }, // Ajoutez le collider ici
-                ));
-            }
-        }
-    }
 }
 
 fn spawn_lights(mut commands: Commands) {
@@ -332,7 +275,7 @@ fn spawn_crosshair(
     asset_server: Res<AssetServer>,
     // mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    let crosshair :Handle<Image> = asset_server.load("crosshair.png");
+    let crosshair: Handle<Image> = asset_server.load("crosshair.png");
     // commands.spawn(UiCameraBundle::default());
 
     // Crée un élément simple (un carré blanc) pour représenter le viseur
@@ -350,15 +293,13 @@ fn spawn_crosshair(
         // image_size:UiImageSize::new(Val::Px(50.0), Val::Px(50.0)),
         image: UiImage::new(crosshair),
 
-       // Couleur du viseur
+        // Couleur du viseur
         ..Default::default()
     };
     // kiki.lao;
     commands.spawn(kiki);
 }
-fn cursor_grab(
-    mut q_windows: Query<&mut Window, With<PrimaryWindow>>,
-) {
+fn cursor_grab(mut q_windows: Query<&mut Window, With<PrimaryWindow>>) {
     let mut primary_window = q_windows.single_mut();
 
     // if you want to use the cursor, but not let it leave the window,
