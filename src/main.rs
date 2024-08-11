@@ -1,13 +1,15 @@
 use bevy::color::palettes::tailwind;
 use bevy::input::mouse::MouseMotion;
+use bevy::pbr::NotShadowCaster;
 use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
 use bevy::window::{CursorGrabMode, PrimaryWindow};
 use mp_fps::{Collider, MapPlugin, Wall};
+use bevy::animation::{animate_targets};
 
 mod camera;
 mod player;
-use camera::systems::{free_cam_control, move_camera, spawn_view_model};
+use camera::systems::{free_cam_control, move_camera, spawn_free_cam};
 use player::systems::*;
 fn main() {
     App::new()
@@ -18,7 +20,9 @@ fn main() {
         .add_systems(
             Startup,
             (
-                spawn_view_model,
+                // spawn_view_model,
+                spawn_player,
+                spawn_free_cam,
                 // spawn_world_model,
                 spawn_lights,
                 spawn_text,
@@ -29,10 +33,14 @@ fn main() {
         .add_systems(
             Update,
             (
-                move_player,
-                player_position_control,
-                check_collision_system,
-                apply_movement,
+                move_camera,
+                free_cam_control,
+                player_animation,
+                animate_targets,
+                // move_player,
+                // player_position_control,
+                // check_collision_system,
+                // apply_movement,
             )
                 .chain(),
         ) // Modifiez cette ligne
@@ -66,7 +74,7 @@ fn check_collision(
     player_position: Vec3,
     player_size: Vec3,
     wall_position: Vec3,
-    wall_size: Vec3,
+    wall_size: Vec3,    
 ) -> bool {
     let collision_factor = 0.7; // Réduction de 20% de la distance de collision
     let min_distance = (player_size + wall_size) * 0.5 * collision_factor;
