@@ -1,11 +1,14 @@
 use bevy::color::palettes::tailwind;
 use bevy::input::mouse::MouseMotion;
-use bevy::pbr::NotShadowCaster;
 use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
 use bevy::window::{CursorGrabMode, PrimaryWindow};
 use mp_fps::{Collider, MapPlugin, Wall};
 
+mod camera;
+mod player;
+use camera::systems::{free_cam_control, move_camera, spawn_view_model};
+use player::systems::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
