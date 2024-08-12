@@ -1,19 +1,26 @@
+use asset_loader_plugin::AssetLoaderPlugin;
+use bevy::animation::animate_targets;
 use bevy::color::palettes::tailwind;
 use bevy::input::mouse::MouseMotion;
 use bevy::pbr::NotShadowCaster;
 use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
 use bevy::window::{CursorGrabMode, PrimaryWindow};
+use debug::utils::print_scene_tree;
+use debug::DebugPlugin;
 use mp_fps::{Collider, MapPlugin, Wall};
-use bevy::animation::{animate_targets};
 
+mod animations;
+mod asset_loader_plugin;
 mod camera;
+mod debug;
 mod player;
 use camera::systems::{free_cam_control, move_camera, spawn_free_cam};
 use player::systems::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .add_plugins(AssetLoaderPlugin)
         .init_resource::<ProposedPlayerPosition>()
         .init_resource::<HasCollision>()
         .add_plugins(MapPlugin) // Ajoutez cette ligne
@@ -21,7 +28,7 @@ fn main() {
             Startup,
             (
                 // spawn_view_model,
-                spawn_player,
+                spawn_player.before(print_scene_tree),
                 spawn_free_cam,
                 // spawn_world_model,
                 spawn_lights,
@@ -46,7 +53,6 @@ fn main() {
         ) // Modifiez cette ligne
         .run();
 }
-
 
 // #[derive(Component, Clone)]
 // struct Collider {
@@ -74,7 +80,7 @@ fn check_collision(
     player_position: Vec3,
     player_size: Vec3,
     wall_position: Vec3,
-    wall_size: Vec3,    
+    wall_size: Vec3,
 ) -> bool {
     let collision_factor = 0.7; // Réduction de 20% de la distance de collision
     let min_distance = (player_size + wall_size) * 0.5 * collision_factor;
@@ -97,7 +103,7 @@ fn spawn_view_model(
                 size: Vec3::new(1.0, 1.0, 1.0),
             }, // Ajoutez le collider ici
             SpatialBundle {
-                transform: Transform::from_xyz((18./2.)+1.5, 2.0, (14.0/2.)+1.5),
+                transform: Transform::from_xyz((18. / 2.) + 1.5, 2.0, (14.0 / 2.) + 1.5),
                 ..default()
             },
         ))

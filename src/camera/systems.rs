@@ -99,7 +99,7 @@ pub fn free_cam_control(
 
         // Optionnel : Limiter le mouvement vertical
         // transform.translation.y = 1.0; // Maintient une hauteur constante
-        println!("\n\n{:?}\n\n", transform.translation)
+        // println!("\n\n{:?}\n\n", transform.translation)
         // Afficher la nouvelle position (pour le débogage)
     }
 }
