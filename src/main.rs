@@ -16,7 +16,6 @@ fn main() {
             Startup,
             (
                 spawn_view_model,
-                // spawn_world_model,
                 spawn_lights,
                 spawn_text,
                 spawn_crosshair,
@@ -200,7 +199,7 @@ fn player_position_control(
     mut proposed_position: ResMut<ProposedPlayerPosition>,
 ) {
     if let Ok(player_transform) = player_query.get_single() {
-        let speed = 10.0;
+        let speed = 4.0;
         let delta = time.delta_seconds();
 
         let mut movement = Vec3::ZERO;
