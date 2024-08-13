@@ -23,10 +23,8 @@ impl Plugin for AssetLoaderPlugin {
 #[derive(AssetCollection, Resource)]
 pub struct MyAssets {
     #[asset(
-        paths("main_skeleton.glb", "scifi_torso.glb", "witch_legs.glb", "sword.glb"),
+        paths("player1.glb"),
         collection(typed, mapped)
     )]
     pub gltf_files: HashMap<String, Handle<Gltf>>,
-    #[asset(paths("FiraSans-Regular.ttf"), collection(typed, mapped))]
-    pub font_files: HashMap<String, Handle<Font>>,
 }

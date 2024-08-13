@@ -1,6 +1,5 @@
-use std::collections::HashMap;
 
-use bevy::prelude::*;
+use bevy::{prelude::*, utils::HashMap};
 
 // Player component
 #[derive(Component)]
@@ -15,7 +14,7 @@ pub struct SceneEntitiesByName(pub HashMap<String, Entity>);
 
 #[derive(Resource, Debug)]
 pub struct Animations{
-    pub animations: HashMap<String, Handle<AnimationClip>>,
+    pub animations: HashMap<String, AnimationNodeIndex>,
     pub graph: Handle<AnimationGraph>,
 }
 

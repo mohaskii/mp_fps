@@ -1,9 +1,9 @@
-use std::{collections::HashMap, time::Duration};
+use std::{time::Duration};
 
 use crate::{animations::systems::SpawnScenesState, asset_loader_plugin::MyAssets};
 
 use super::components::*;
-use bevy::prelude::*;
+use bevy::{prelude::*, utils::HashMap};
 // Player system
 // pub fn player_system(mut query: Query<&mut Player>) {
 //     for mut player in query.iter_mut() {
@@ -55,71 +55,59 @@ use bevy::prelude::*;
 //     );
 // }
 
-
-
 pub fn spawn_scenes(
     mut commands: Commands,
-    asset_pack: Res<MyAssets>,
-    assets_gltf: Res<Assets<Gltf>>,
-    mut next_state: ResMut<NextState<SpawnScenesState>>,
+    // asset_pack: Res<MyAssets>,
+    // assets_gltf: Res<Assets<Gltf>>,
+    // ass: Res<AssetServer>,
+    // mut graphs: ResMut<Assets<AnimationGraph>>,
+    // mut next_state: ResMut<NextState<SpawnScenesState>>,
 ) {
-    let mut animations: HashMap<String, Handle<AnimationClip>, _> = HashMap::new();
-    let mut scene_entities_by_name = HashMap::new();
+    // let mut animations: HashMap<String, AnimationNodeIndex> = HashMap::new();
+    // let mut scene_entities_by_name = HashMap::new();
 
-    // let mut x = 0.0;
-    // SPAWN SCENES
-    for (name, gltf_handle) in &asset_pack.gltf_files {
-        if let Some(gltf) = assets_gltf.get(gltf_handle) {
-            println!("SPAWING");
-            let mut transform = Transform::from_xyz(0.0, 0.0, 0.0);
+    // // let mut x = 0.0;
+    // // SPAWN SCENES
+    // for (name, gltf_handle) in &asset_pack.gltf_files {
+    //     if let Some(gltf) = assets_gltf.get(gltf_handle) {
+    //         println!("SPAWING");
+    //         let mut transform = Transform::from_xyz(0.0, 0.0, 0.0);
+    //         let mut entity = Entity::from_raw(0);
+    //         if let Some(s) =  gltf.named_scenes.get("Scene0"){
+    //             let entity_commands = commands.spawn((
+    //                 SceneBundle {
+    //                     scene: s.clone(),
+    //                     transform,
+    //                     ..Default::default()
+    //                 },
+    //                 SceneName(name.clone()),
+    //             ));
+    //             entity = entity_commands.id()
+    //         }
 
-            if name == "sword.glb" {
-                transform.scale = Vec3::splat(0.1)
-            }
+    //     }
+    // }
 
-            let entity_commands = commands.spawn((
-                SceneBundle {
-                    scene: gltf.named_scenes["Scene"].clone(),
-                    transform,
-                    ..Default::default()
-                },
-                SceneName(name.clone()),
-            ));
+    // let mut graph = AnimationGraph::new();
+    // let mut clips: Vec<bevy::asset::AssetPath<'_>> = Vec::new();
+    // for path in asset_pack.gltf_files.keys() {
+    //     clips.push(GltfAssetLabel::Animation(0).from_asset(path.clone()));
+    // }
+    // graph.add_clips(
+    //     clips.into_iter().map(|path| ass.load(path)),
+    //     1.0,
+    //     graph.root,
+    // );
 
-            let entity = entity_commands.id();
-            scene_entities_by_name.insert(name.clone(), entity);
+    // let graph = graphs.add(graph);
 
-            for named_animation in gltf.named_animations.iter() {
-                println!("inserting animation: {}", named_animation.0);
-                animations.insert(
-                    named_animation.0.to_string(),
-                    gltf.named_animations[named_animation.0].clone(),
-                );
-            }
-        }
-        // x += 2.0;
-    }
+    // commands.insert_resource(Animations {
+    //     animations,
+    //     graph: graph.clone(),
+    // });
+    // commands.insert_resource(SceneEntitiesByName(scene_entities_by_name));
 
-    let mut graph = AnimationGraph::new();
-    let mut clips = Vec::new();
-    for path in asset_pack.gltf_files.keys() {
-              clips.push(GltfAssetLabel::Animation(0).from_asset(path)) ;
-            }
-    let animations = graph
-        .add_clips(
-            
-        
-            clips.into_iter()
-            .map(|path| ass.load(path)),
-            1.0,
-            graph.root,
-        )
-        .collect();
-
-    commands.insert_resource(Animations(animations));
-    commands.insert_resource(SceneEntitiesByName(scene_entities_by_name));
-
-    next_state.set(SpawnScenesState::Spawned)
+    // next_state.set(SpawnScenesState::Spawned)
 }
 // pub fn player_animation(
 //     mut commands: Commands,
@@ -144,53 +132,52 @@ pub fn spawn_scenes(
 //     }
 // }
 
-
 pub fn run_animations(
     mut animation_player_query: Query<&mut AnimationPlayer>,
     scene_and_animation_player_link_query: Query<
         (&SceneName, &AnimationEntityLink),
         Added<AnimationEntityLink>,
     >,
-    animations: Res<Animations>,
-    scene_entities_by_name: Res<SceneEntitiesByName>,
-) {
-    let main_skeleton_scene_entity = scene_entities_by_name
-        .0
-        .get("main_skeleton.glb")
-        .expect("the scene to be registered");
+    // animations: Res<Animations>,
+    // scene_entities_by_name: Res<SceneEntitiesByName>,
+ ) {
+//     let main_skeleton_scene_entity = scene_entities_by_name
+//         .0
+//         .get("player1.glb")
+//         .expect("the scene to be registered");
 
-    let (_, animation_player_entity_link) = scene_and_animation_player_link_query
-        .get(*main_skeleton_scene_entity)
-        .expect("the scene to exist");
+//     let (_, animation_player_entity_link) = scene_and_animation_player_link_query
+//         .get(*main_skeleton_scene_entity)
+//         .expect("the scene to exist");
 
-    let mut animation_player = animation_player_query
-        .get_mut(animation_player_entity_link.0)
-        .expect("to have an animation player on the main skeleton");
+//     let mut animation_player = animation_player_query
+//         .get_mut(animation_player_entity_link.0)
+//         .expect("to have an animation player on the main skeleton");
 
-        let transition = AnimationTransitions::new();
-        animation_player.play(animation)
-        transition
-            .play(
-                &mut animation_player,
-                animations
-                    .0
-                    .get("Idle")
-                    .expect("to have an animation by this name")
-                    .clone_weak(),
-                    Duration::ZERO,
-            )
-            .repeat()
-            .set_speed(0.5);    
-    animation_player
-        .play(
-            animations
-                .0
-                .get("Sword_Slash")
-                .expect("to have an animation by this name")
-                .clone_weak(),
-        )
-        .repeat()
-        .set_speed(0.5);
+//     let mut transition = AnimationTransitions::new();
+//     // animation_player.play(animation)
+//     transition
+//         .play(
+//             &mut animation_player,
+//             animations
+//                 .animations
+//                 .get("walk_forward")
+//                 .expect("to have an animation by this name")
+//                 .clone(),
+//             Duration::ZERO,
+//         )
+//         .repeat()
+//         .set_speed(0.5);
+//     animation_player
+//         .play(
+//             animations
+//                 .animations
+//                 .get("walk_forward")
+//                 .expect("to have an animation by this name")
+//                 .clone(),
+//         )
+//         .repeat()
+//         .set_speed(0.5);
 }
 
 #[derive(Component, Debug)]

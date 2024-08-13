@@ -28,7 +28,7 @@ fn main() {
             Startup,
             (
                 // spawn_view_model,
-                spawn_player.before(print_scene_tree),
+                // spawn_scenes.before(print_scene_tree),
                 spawn_free_cam,
                 // spawn_world_model,
                 spawn_lights,
@@ -42,7 +42,7 @@ fn main() {
             (
                 move_camera,
                 free_cam_control,
-                player_animation,
+                run_animations,
                 animate_targets,
                 // move_player,
                 // player_position_control,
