@@ -4,7 +4,7 @@ use bevy::pbr::NotShadowCaster;
 use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
 use bevy::window::{CursorGrabMode, PrimaryWindow};
-use mp_fps::{Collider, MapPlugin, Wall};
+use mp_fps::{Collider, MapPlugin, MiniMapPlayer, Wall};
 
 fn main() {
     App::new()
@@ -34,7 +34,6 @@ fn main() {
         ) // Modifiez cette ligne
         .run();
 }
-
 
 // #[derive(Component, Clone)]
 // struct Collider {
@@ -85,7 +84,7 @@ fn spawn_view_model(
                 size: Vec3::new(1.0, 1.0, 1.0),
             }, // Ajoutez le collider ici
             SpatialBundle {
-                transform: Transform::from_xyz((18./2.)+1.5, 2.0, (14.0/2.)+1.5),
+                transform: Transform::from_xyz((23. / 2.) + 1.5, 2.0, (14.0 / 2.) + 1.5),
                 ..default()
             },
         ))
@@ -250,9 +249,11 @@ fn check_collision_system(
 }
 fn apply_movement(
     mut query: Query<&mut Transform, With<Player>>,
+    mut minimap_player_query: Query<&mut Transform, (With<MiniMapPlayer>, Without<Player>)>,
     proposed_position: Res<ProposedPlayerPosition>,
     has_collision: Res<HasCollision>,
 ) {
+    let mut minimap_player_transform = minimap_player_query.get_single_mut().unwrap();
     if let Ok(mut player_transform) = query.get_single_mut() {
         if has_collision.0 {
             // Calculer la direction de la collision
@@ -266,6 +267,11 @@ fn apply_movement(
         } else {
             // Appliquer le mouvement proposé s'il n'y a pas de collision
             player_transform.translation = proposed_position.0;
+            minimap_player_transform.translation = Vec3::new(
+                (player_transform.translation.x.floor() - (23. / 2.)+0.5) * 10.,
+                (player_transform.translation.z.floor() - (14. / 2.)+0.5) * 10.,
+                0.,
+            );
         }
     }
 }

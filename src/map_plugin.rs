@@ -3,6 +3,8 @@ pub struct MapPlugin;
 
 #[derive(Component)]
 pub struct Wall;
+#[derive(Component)]
+pub struct MiniMapPlayer;
 
 #[derive(Component, Clone)]
 pub struct Collider {
@@ -20,23 +22,30 @@ fn spawn_world_model(
     mut mini_map_materials: ResMut<Assets<ColorMaterial>>,
 ) {
     // Définir la carte du labyrinthe
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2dBundle {
+        camera: Camera {
+            order: 2,
+            ..default()
+        },
+        ..default()
+    });
     let maze = vec![
-        vec![1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-        vec![1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1],
-        vec![1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1],
-        vec![1, 0, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1],
-        vec![1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-        vec![1, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1],
-        vec![1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1],
-        vec![1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-        vec![1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1],
-        vec![1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-        vec![1, 0, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1],
-        vec![1, 0, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1],
-        vec![1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1],
-        vec![1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        vec![1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        vec![1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+        vec![1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 1],
+        vec![1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 1],
+        vec![1, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 1, 0, 0, 0, 1],
+        vec![1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1],
+        vec![1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1],
+        vec![1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1],
+        vec![1, 0, 0, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1],
+        vec![1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+        vec![1, 1, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 0, 1],
+        vec![1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1],
+        vec![1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+        vec![1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
     ];
+
 
     // Calculer la taille du sol en fonction de la taille de la matrice du labyrinthe
     let maze_width = maze[0].len() as f32;
@@ -66,17 +75,20 @@ fn spawn_world_model(
     // Créer l'entité parent pour le mini-map
     let mini_map_parent = commands.spawn(TransformBundle::default()).id();
     let p = commands
-        .spawn((MaterialMesh2dBundle {
-            mesh: meshes.add(Rectangle::default()).into(),
-            transform: Transform::from_xyz(
-                (1. + cube_half_size) * 8.,
-                (1. + cube_half_size) * 8.,
-                0.0,
-            )
-            .with_scale(Vec3::splat(8.)),
-            material: mini_map_materials.add(Color::WHITE),
-            ..default()
-        },))
+        .spawn((
+            MaterialMesh2dBundle {
+                mesh: meshes.add(Rectangle::default()).into(),
+                transform: Transform::from_xyz(
+                    (1. + cube_half_size) * 10.,
+                    (1. + cube_half_size) * 10.,
+                    0.0,
+                )
+                .with_scale(Vec3::splat(10.)),
+                material: mini_map_materials.add(Color::WHITE),
+                ..default()
+            },
+            MiniMapPlayer,
+        ))
         .id();
     commands.entity(mini_map_parent).push_children(&[p]);
 
