@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, sprite::MaterialMesh2dBundle};
 pub struct MapPlugin;
 
 #[derive(Component)]
@@ -17,8 +17,10 @@ fn spawn_world_model(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut mini_map_materials: ResMut<Assets<ColorMaterial>>,
 ) {
     // Définir la carte du labyrinthe
+    commands.spawn(Camera2dBundle::default());
     let maze = vec![
         vec![1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
         vec![1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1],
@@ -35,8 +37,6 @@ fn spawn_world_model(
         vec![1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1],
         vec![1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
     ];
-
-
 
     // Calculer la taille du sol en fonction de la taille de la matrice du labyrinthe
     let maze_width = maze[0].len() as f32;
@@ -61,6 +61,25 @@ fn spawn_world_model(
     // Créer les cubes pour le labyrinthe
     let cube = meshes.add(Cuboid::new(1.0, 1.0, 1.0));
     let cube_material = materials.add(Color::BLACK);
+    let mini_map_cube_material = mini_map_materials.add(Color::srgb(0.02, 0.4, 0.4));
+
+    // Créer l'entité parent pour le mini-map
+    let mini_map_parent = commands.spawn(TransformBundle::default()).id();
+    let p = commands
+        .spawn((MaterialMesh2dBundle {
+            mesh: meshes.add(Rectangle::default()).into(),
+            transform: Transform::from_xyz(
+                (1. + cube_half_size) * 8.,
+                (1. + cube_half_size) * 8.,
+                0.0,
+            )
+            .with_scale(Vec3::splat(8.)),
+            material: mini_map_materials.add(Color::WHITE),
+            ..default()
+        },))
+        .id();
+    commands.entity(mini_map_parent).push_children(&[p]);
+
     for (z, row) in maze.iter().enumerate() {
         for (x, &cell) in row.iter().enumerate() {
             if cell == 1 {
@@ -78,9 +97,34 @@ fn spawn_world_model(
                     Wall,
                     Collider {
                         size: Vec3::new(1.0, 1.0, 1.0),
-                    }, // Ajoutez le collider ici
+                    },
                 ));
+
+                let mini_map_cube = commands
+                    .spawn((MaterialMesh2dBundle {
+                        mesh: meshes.add(Rectangle::default()).into(),
+                        transform: Transform::from_xyz(
+                            (x as f32 + cube_half_size) * 10.0,
+                            (z as f32 + cube_half_size) * 10.0,
+                            0.0,
+                        )
+                        .with_scale(Vec3::splat(10.0)),
+                        material: mini_map_cube_material.clone(),
+                        ..default()
+                    },))
+                    .id();
+
+                // Ajouter le carré à l'entité parent du mini-map
+                commands
+                    .entity(mini_map_parent)
+                    .push_children(&[mini_map_cube]);
             }
         }
     }
+
+    // Positionner le mini-map dans un coin de l'écran
+    commands.entity(mini_map_parent).insert(Transform {
+        translation: Vec3::new(-700.0, 200.0, 0.0), // Ajustez cette valeur pour positionner dans le coin souhaité
+        ..default()
+    });
 }

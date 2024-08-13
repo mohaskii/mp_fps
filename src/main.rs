@@ -11,7 +11,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .init_resource::<ProposedPlayerPosition>()
         .init_resource::<HasCollision>()
-        .add_plugins(MapPlugin) // Ajoutez cette ligne
+        .add_plugins((MapPlugin,)) // Ajoutez cette ligne
         .add_systems(
             Startup,
             (
@@ -42,7 +42,7 @@ fn main() {
 // }
 
 #[derive(Debug, Component)]
-struct Player;
+pub struct Player;
 
 #[derive(Debug, Component)]
 struct WorldModelCamera;
