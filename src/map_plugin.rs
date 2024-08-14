@@ -10,11 +10,11 @@ pub struct MiniMapPlayer;
 pub struct Collider {
     pub size: Vec3,
 }
-impl Plugin for MapPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(Startup, spawn_world_model);
+    impl Plugin for MapPlugin {
+        fn build(&self, app: &mut App) {
+            app.add_systems(Startup, spawn_world_model);
+        }
     }
-}
 fn spawn_world_model(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,

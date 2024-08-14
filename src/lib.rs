@@ -1,7 +1,8 @@
-
 mod map_plugin;
-pub use map_plugin::{MapPlugin, Collider, Wall, MiniMapPlayer};
+pub use map_plugin::{Collider, MapPlugin, MiniMapPlayer, Wall};
 // mod mini_map_plugin;
 // pub use mini_map_plugin::{MiniMapPlugin, MiniMap, MiniMapPlayer};
 mod player;
 pub use player::Player;
+mod shooting;
+pub use shooting::{shoot_system, projectile_movement_system};

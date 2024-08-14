@@ -4,7 +4,9 @@ use bevy::pbr::NotShadowCaster;
 use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
 use bevy::window::{CursorGrabMode, PrimaryWindow};
-use mp_fps::{Collider, MapPlugin, MiniMapPlayer, Wall};
+use mp_fps::{
+    projectile_movement_system, shoot_system, Collider, MapPlugin, MiniMapPlayer, Player, Wall,
+    };
 
 fn main() {
     App::new()
@@ -29,9 +31,11 @@ fn main() {
                 player_position_control,
                 check_collision_system,
                 apply_movement,
+                shoot_system,               // Système pour tirer
+                projectile_movement_system, // Système pour déplacer le projectile
             )
                 .chain(),
-        ) // Modifiez cette ligne
+        )
         .run();
 }
 
@@ -39,9 +43,6 @@ fn main() {
 // struct Collider {
 //     size: Vec3,
 // }
-
-#[derive(Debug, Component)]
-pub struct Player;
 
 #[derive(Debug, Component)]
 struct WorldModelCamera;
@@ -268,8 +269,8 @@ fn apply_movement(
             // Appliquer le mouvement proposé s'il n'y a pas de collision
             player_transform.translation = proposed_position.0;
             minimap_player_transform.translation = Vec3::new(
-                (player_transform.translation.x.floor() - (23. / 2.)+0.5) * 10.,
-                (player_transform.translation.z.floor() - (14. / 2.)+0.5) * 10.,
+                (player_transform.translation.x.floor() - (23. / 2.) + 0.5) * 10.,
+                (player_transform.translation.z.floor() - (14. / 2.) + 0.5) * 10.,
                 0.,
             );
         }
