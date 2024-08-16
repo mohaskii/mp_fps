@@ -5,17 +5,18 @@ use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
 use bevy::window::{CursorGrabMode, PrimaryWindow};
 use mp_fps::{
-    projectile_movement_system, shoot_system, Collider, MapPlugin, MiniMapPlayer, Player, Wall,
-    };
+    projectile_movement_system, shoot_system, Collider, GameState, MapPlugin, MiniMapPlayer,
+    Player, UiPlugin, Wall,
+};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .init_resource::<ProposedPlayerPosition>()
         .init_resource::<HasCollision>()
-        .add_plugins((MapPlugin,)) // Ajoutez cette ligne
+        .add_plugins((MapPlugin, UiPlugin)) // Ajoutez cette ligne
         .add_systems(
-            Startup,
+            OnEnter(GameState::Playing),
             (
                 spawn_view_model,
                 spawn_lights,
@@ -34,7 +35,8 @@ fn main() {
                 shoot_system,               // Système pour tirer
                 projectile_movement_system, // Système pour déplacer le projectile
             )
-                .chain(),
+                .chain()
+                .run_if(in_state(GameState::Playing)),
         )
         .run();
 }
@@ -77,10 +79,9 @@ fn spawn_view_model(
 ) {
     let arm = meshes.add(Cuboid::new(0.1, 0.1, 0.5));
     let arm_material = materials.add(Color::from(tailwind::TEAL_200));
-
     commands
         .spawn((
-            Player,
+            Player::default(),
             Collider {
                 size: Vec3::new(1.0, 1.0, 1.0),
             }, // Ajoutez le collider ici
@@ -180,15 +181,15 @@ fn spawn_text(mut commands: Commands) {
 
 fn move_player(
     mut mouse_motion: EventReader<MouseMotion>,
-    mut player: Query<&mut Transform, With<Player>>,
+    mut player: Query<&mut Player>,
 ) {
-    let mut transform = player.single_mut();
+    let mut player = player.single_mut();
     for motion in mouse_motion.read() {
         let yaw = -motion.delta.x * 0.003;
         let pitch = -motion.delta.y * 0.002;
         // Order of rotations is important, see <https://gamedev.stackexchange.com/a/136175/103059>
-        transform.rotate_y(yaw);
-        transform.rotate_local_x(pitch);
+        player.transform.rotate_y(yaw);
+        player.transform.rotate_local_x(pitch);
     }
 }
 

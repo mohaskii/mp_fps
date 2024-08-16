@@ -6,3 +6,5 @@ mod player;
 pub use player::Player;
 mod shooting;
 pub use shooting::{shoot_system, projectile_movement_system};
+mod  ui;
+pub use ui::{despawn_menu,GameState,UiPlugin};
