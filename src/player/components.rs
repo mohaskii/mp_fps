@@ -9,10 +9,16 @@ pub struct Player {
 }
 
 
-#[derive(Resource, Debug)]
+#[derive(Resource, Debug,Default)]
 pub struct SceneEntitiesByName(pub HashMap<String, Entity>);
+// impl Default for SceneEntitiesByName {
+//     fn default() -> Self {
+//         SceneEntitiesByName(HashMap::default())
+//     }
+    
+// }
 
-#[derive(Resource, Debug)]
+#[derive(Resource, Debug,Default)]
 pub struct Animations{
     pub animations: HashMap<String, AnimationNodeIndex>,
     pub graph: Handle<AnimationGraph>,

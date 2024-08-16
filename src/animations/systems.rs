@@ -12,8 +12,8 @@ pub enum SpawnScenesState {
 }
 
 
-#[derive(Resource, Debug)]
-pub struct SceneEntitiesByName(pub HashMap<String, Entity>);
+// #[derive(Resource, Debug)]
+// pub struct SceneEntitiesByName(pub HashMap<String, Entity>);
 
-#[derive(Resource, Debug)]
-pub struct Animations(pub HashMap<String, Handle<AnimationClip>>);
+// #[derive(Resource, Debug)]
+// pub struct Animations(pub HashMap<String, Handle<AnimationClip>>);

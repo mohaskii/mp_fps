@@ -1,12 +1,18 @@
-use asset_loader_plugin::AssetLoaderPlugin;
+use std::fs::File;
+use std::io::{self, Read};
+use std::process::exit;
+
+use animations::systems::SpawnScenesState;
+use asset_loader_plugin::{AssetLoaderPlugin, AssetLoaderState, MyAssets};
 use bevy::animation::animate_targets;
 use bevy::color::palettes::tailwind;
 use bevy::input::mouse::MouseMotion;
 use bevy::pbr::NotShadowCaster;
 use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
-use bevy::window::{CursorGrabMode, PrimaryWindow};
-use debug::utils::print_scene_tree;
+use bevy::scene::ron::de;
+use bevy::window::{Cursor, CursorGrabMode, PrimaryWindow, WindowMode};
+use debug::utils::{print_position, print_scene_tree};
 use debug::DebugPlugin;
 use mp_fps::{Collider, MapPlugin, Wall};
 
@@ -16,38 +22,60 @@ mod camera;
 mod debug;
 mod player;
 use camera::systems::{free_cam_control, move_camera, spawn_free_cam};
+use player::components::{Animations, Player, SceneEntitiesByName};
 use player::systems::*;
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugins(AssetLoaderPlugin)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                cursor: Cursor {
+                    visible: false,
+                    grab_mode: CursorGrabMode::Locked,
+                    ..default()
+                },
+                mode: WindowMode::BorderlessFullscreen,
+                ..default()
+            }),
+            ..default()
+        }))
+        .init_state::<SpawnScenesState>()
         .init_resource::<ProposedPlayerPosition>()
         .init_resource::<HasCollision>()
+        .init_resource::<Animations>()
+        .init_resource::<SceneEntitiesByName>()
+        .add_systems(OnEnter(AssetLoaderState::Done), spawn_scenes)
+        .add_systems(OnEnter(SpawnScenesState::Spawned), (print_scene_tree,))
+        .add_systems(OnEnter(SpawnScenesState::Done), (run_animations))
+        .add_plugins(AssetLoaderPlugin)
         .add_plugins(MapPlugin) // Ajoutez cette ligne
         .add_systems(
             Startup,
             (
                 // spawn_view_model,
-                // spawn_scenes.before(print_scene_tree),
-                spawn_free_cam,
+                // load,
+                // spawn_scenes,
+                // print_scene_tree,
+                // spawn_free_cam,
                 // spawn_world_model,
                 spawn_lights,
                 spawn_text,
                 spawn_crosshair,
                 cursor_grab,
-            ),
+            )
+                .chain(),
         )
+        // .add_systems(Update, print_position)
         .add_systems(
             Update,
             (
-                move_camera,
-                free_cam_control,
-                run_animations,
+                move_player
+                    .run_if(|state: Res<State<SpawnScenesState>>| *state == SpawnScenesState::Done),
+                // move_camera,OnEnter(SpawnScenesState::Done)
+                // free_cam_control,
+                player_position_control,
                 animate_targets,
-                // move_player,
-                // player_position_control,
                 // check_collision_system,
-                // apply_movement,
+                apply_movement,
             )
                 .chain(),
         ) // Modifiez cette ligne
@@ -59,12 +87,7 @@ fn main() {
 //     size: Vec3,
 // }
 
-#[derive(Debug, Component)]
-struct Player;
-
-#[derive(Debug, Component)]
-struct WorldModelCamera;
-#[derive(Resource, Default)]
+#[derive(Debug, Component, Resource, Default)]
 struct ProposedPlayerPosition(Vec3);
 #[derive(Resource, Component, Default)]
 struct HasCollision(bool);
@@ -88,71 +111,71 @@ fn check_collision(
     actual_distance.abs().cmple(min_distance).all()
 }
 
-fn spawn_view_model(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
-    let arm = meshes.add(Cuboid::new(0.1, 0.1, 0.5));
-    let arm_material = materials.add(Color::from(tailwind::TEAL_200));
+// fn spawn_view_model(
+//     mut commands: Commands,
+//     mut meshes: ResMut<Assets<Mesh>>,
+//     mut materials: ResMut<Assets<StandardMaterial>>,
+// ) {
+//     let arm = meshes.add(Cuboid::new(0.1, 0.1, 0.5));
+//     let arm_material = materials.add(Color::from(tailwind::TEAL_200));
 
-    commands
-        .spawn((
-            Player,
-            Collider {
-                size: Vec3::new(1.0, 1.0, 1.0),
-            }, // Ajoutez le collider ici
-            SpatialBundle {
-                transform: Transform::from_xyz((18. / 2.) + 1.5, 2.0, (14.0 / 2.) + 1.5),
-                ..default()
-            },
-        ))
-        .with_children(|parent| {
-            parent.spawn((
-                WorldModelCamera,
-                Camera3dBundle {
-                    projection: PerspectiveProjection {
-                        fov: 90.0_f32.to_radians(),
-                        ..default()
-                    }
-                    .into(),
-                    ..default()
-                },
-            ));
-            // Spawn view model camera.
-            parent.spawn((
-                Camera3dBundle {
-                    camera: Camera {
-                        // Bump the order to render on top of the world model.
-                        order: 1,
-                        ..default()
-                    },
-                    projection: PerspectiveProjection {
-                        fov: 70.0_f32.to_radians(),
-                        ..default()
-                    }
-                    .into(),
-                    ..default()
-                },
-                // Only render objects belonging to the view model.
-                RenderLayers::layer(VIEW_MODEL_RENDER_LAYER),
-            ));
+//     commands
+//         .spawn((
+//             Player,
+//             Collider {
+//                 size: Vec3::new(1.0, 1.0, 1.0),
+//             }, // Ajoutez le collider ici
+//             SpatialBundle {
+//                 transform: Transform::from_xyz((18. / 2.) + 1.5, 2.0, (14.0 / 2.) + 1.5),
+//                 ..default()
+//             },
+//         ))
+//         .with_children(|parent| {
+//             parent.spawn((
+//                 WorldModelCamera,
+//                 Camera3dBundle {
+//                     projection: PerspectiveProjection {
+//                         fov: 90.0_f32.to_radians(),
+//                         ..default()
+//                     }
+//                     .into(),
+//                     ..default()
+//                 },
+//             ));
+//             // Spawn view model camera.
+//             parent.spawn((
+//                 Camera3dBundle {
+//                     camera: Camera {
+//                         // Bump the order to render on top of the world model.
+//                         order: 1,
+//                         ..default()
+//                     },
+//                     projection: PerspectiveProjection {
+//                         fov: 70.0_f32.to_radians(),
+//                         ..default()
+//                     }
+//                     .into(),
+//                     ..default()
+//                 },
+//                 // Only render objects belonging to the view model.
+//                 RenderLayers::layer(VIEW_MODEL_RENDER_LAYER),
+//             ));
 
-            // Spawn the player's right arm.
-            parent.spawn((
-                MaterialMeshBundle {
-                    mesh: arm,
-                    material: arm_material,
-                    transform: Transform::from_xyz(0.2, -0.1, -0.25),
-                    ..default()
-                },
-                // Ensure the arm is only rendered by the view model camera.
-                RenderLayers::layer(VIEW_MODEL_RENDER_LAYER),
-                // The arm is free-floating, so shadows would look weird.
-                NotShadowCaster,
-            ));
-        });
-}
+//             // Spawn the player's right arm.
+//             parent.spawn((
+//                 MaterialMeshBundle {
+//                     mesh: arm,
+//                     material: arm_material,
+//                     transform: Transform::from_xyz(0.2, -0.1, -0.25),
+//                     ..default()
+//                 },
+//                 // Ensure the arm is only rendered by the view model camera.
+//                 RenderLayers::layer(VIEW_MODEL_RENDER_LAYER),
+//                 // The arm is free-floating, so shadows would look weird.
+//                 NotShadowCaster,
+//             ));
+//         });
+// }
 
 fn spawn_lights(mut commands: Commands) {
     commands.spawn((
@@ -198,15 +221,21 @@ fn spawn_text(mut commands: Commands) {
 
 fn move_player(
     mut mouse_motion: EventReader<MouseMotion>,
-    mut player: Query<&mut Transform, With<Player>>,
+    mut player_camera: Query<&mut Transform, With<PlayerModelCamera>>,
+    mut player: Query<&mut Transform, (With<Player>,Without<PlayerModelCamera>)>,
 ) {
-    let mut transform = player.single_mut();
+    let mut transform = player_camera.single_mut();
+    let mut player_transform = player.single_mut();
     for motion in mouse_motion.read() {
         let yaw = -motion.delta.x * 0.003;
         let pitch = -motion.delta.y * 0.002;
+        let forward = transform.forward();
         // Order of rotations is important, see <https://gamedev.stackexchange.com/a/136175/103059>
         transform.rotate_y(yaw);
-        transform.rotate_local_x(pitch);
+        player_transform.rotate_y(yaw);
+        if forward.y + pitch < 0.9 && forward.y + pitch > -0.9 {
+            transform.rotate_local_x(pitch);
+        }
     }
 }
 
@@ -217,7 +246,7 @@ fn player_position_control(
     mut proposed_position: ResMut<ProposedPlayerPosition>,
 ) {
     if let Ok(player_transform) = player_query.get_single() {
-        let speed = 10.0;
+        let speed = 2.2;
         let delta = time.delta_seconds();
 
         let mut movement = Vec3::ZERO;
@@ -240,7 +269,7 @@ fn player_position_control(
         }
 
         proposed_position.0 = player_transform.translation + movement * speed * delta;
-        proposed_position.0.y = 1.0;
+        proposed_position.0.y = 0.0;
     }
 }
 fn check_collision_system(
