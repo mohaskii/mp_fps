@@ -5,7 +5,10 @@ edition = "2021"
 
 [dependencies]
 bevy = { version = "0.14.0", features = ["dynamic_linking"] }
+tokio = { version = "1.39.2", features = ["full"] }
 # bevy_rapier3d = "0.27.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 
 # Enable a small amount of optimization in the dev profile.
 [profile.dev]

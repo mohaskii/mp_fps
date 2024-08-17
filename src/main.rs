@@ -179,17 +179,18 @@ fn spawn_text(mut commands: Commands) {
         });
 }
 
+
 fn move_player(
     mut mouse_motion: EventReader<MouseMotion>,
-    mut player: Query<&mut Player>,
+    mut player: Query<&mut Transform, With<Player>>,
 ) {
-    let mut player = player.single_mut();
+    let mut transform = player.single_mut();
     for motion in mouse_motion.read() {
         let yaw = -motion.delta.x * 0.003;
         let pitch = -motion.delta.y * 0.002;
         // Order of rotations is important, see <https://gamedev.stackexchange.com/a/136175/103059>
-        player.transform.rotate_y(yaw);
-        player.transform.rotate_local_x(pitch);
+        transform.rotate_y(yaw);
+        transform.rotate_local_x(pitch);
     }
 }
 
