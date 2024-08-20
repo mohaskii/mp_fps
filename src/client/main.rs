@@ -69,6 +69,10 @@ fn main() {
             player_position_control,
             check_collision_system,
             apply_movement,
+            send_message_system,
+            receive_message_system,
+            handle_player_spawn_event_system,
+            handle_lobby_sync_event_system,
         )
         .chain(),
     );
