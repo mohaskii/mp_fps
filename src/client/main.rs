@@ -25,6 +25,12 @@ fn main() {
     app.add_plugins(DefaultPlugins);
     app.add_plugins(MapPlugin);
 
+    // Get the server address from the command line arguments
+    let server_address = std::env::args()
+        .nth(1)
+        .unwrap_or_else(|| "127.0.0.1:5000".to_string());
+    let server_address: SocketAddrV4 = server_address.parse().expect("Invalid server address");
+
     // renet client
     let client = RenetClient::new(ConnectionConfig::default());
     app.insert_resource(client);
@@ -36,10 +42,7 @@ fn main() {
     app.insert_resource(HasCollision(false));
 
     let authentication = ClientAuthentication::Unsecure {
-        server_addr: std::net::SocketAddr::V4(SocketAddrV4::new(
-            std::net::Ipv4Addr::new(127, 0, 0, 1),
-            5000,
-        )),
+        server_addr: std::net::SocketAddr::V4(server_address),
         client_id,
         user_data: None,
         protocol_id: 0,
@@ -59,12 +62,6 @@ fn main() {
     app.add_event::<events::LobbySyncEvent>();
 
     // game systems
-    // app.add_systems(Update, send_message_system);
-    // app.add_systems(Update, receive_message_system);
-    // app.add_systems(Update, handle_player_spawn_event_system);
-    // app.add_systems(Update, update_player_movement_system);
-    // app.add_systems(Update, handle_lobby_sync_event_system);
-    
     app.add_systems(
         Update,
         (
@@ -73,9 +70,9 @@ fn main() {
             check_collision_system,
             apply_movement,
         )
-            .chain(),
+        .chain(),
     );
-    
+
     app.add_systems(
         Startup,
         (
@@ -87,7 +84,7 @@ fn main() {
         ),
     );
 
-    info!("Client {} started", client_id);
+    info!("Client {} started with server address {}", client_id, server_address);
 
     app.run();
 }
