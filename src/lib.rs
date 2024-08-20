@@ -9,3 +9,4 @@ pub use shooting::{shoot_system, projectile_movement_system};
 mod  ui;
 pub use ui::{despawn_menu,GameState,UiPlugin};
 mod clien;
+pub use clien::{ClientPlugin, Message, RESPONSE, SHOOT, TRANSFORM_UPDATE,NetworkSender, NetworkReceiver};

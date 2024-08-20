@@ -1,8 +1,13 @@
 
+use std::io::{Error, ErrorKind};
 
 use tokio::sync::mpsc;
+use tokio::runtime::Runtime;
+pub use bevy::prelude::*;
 use serde_json::{json, Value};
-use bevy:: prelude::*;
+use bevy::prelude::*;
+
+use crate::Player;
 type MessageCode = u8;
 //Message code
 pub const JOIN: MessageCode = 0;
@@ -16,22 +21,41 @@ pub struct ClientPlugin;
 
 impl Plugin for ClientPlugin {
     fn build(&self, app: &mut App) {
-       todo!();
+        todo!()
     }
 }
-
-
-#[derive(Debug, serde::Serialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct Message {
     pub message_code: MessageCode,
     pub content: Value,
 }
+impl  Message {
+    pub fn frome_bytes(message: &[u8]) -> Result<Message , Error> {
+        // Convertir les bytes en une chaîne de caractères
+        let message_str = match std::str::from_utf8(message) {
+            Ok(v) => v,
+            Err(e) => return Err(Error::new(ErrorKind::InvalidData, e)), // En cas d'erreur de conversion
+        };
 
-use tokio::task::JoinHandle;
+        // Convertir la chaîne JSON en une valeur JSON (Value)
+        match serde_json::from_str(message_str) {
+            Ok(v) => Ok(v),
+            Err(e) => return Err(Error::from(e)), // En cas d'erreur de parsing JSON
+        }
+
+        // Convertir le Value en HashMap<String, String>
+    }
+}
 #[derive(Resource,)]
-struct NetworkSender(mpsc::Sender<Message>);
-#[derive(Resource)]
-struct NetworkReceiver(mpsc::Receiver<Message>);
+pub struct NetworkSender(pub mpsc::Sender<Message>);
+#[derive(Resource,)]
+pub struct NetworkReceiver( pub mpsc::Receiver<Message>);
+
+fn setup(mut commands: Commands) {
+    // Ajoutez ici les entités du jeu et les configurations supplémentaires
+}
+
+// Fonction pour mettre à jour le réseau
 fn network_update(
     mut receiver: ResMut<NetworkReceiver>,
     mut query: Query<(&Player, &mut Transform)>,

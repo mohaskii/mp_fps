@@ -1,3 +1,5 @@
+use std::io;
+
 use bevy::color::palettes::tailwind;
 use bevy::input::mouse::MouseMotion;
 use bevy::pbr::NotShadowCaster;
@@ -5,15 +7,35 @@ use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
 use bevy::window::{CursorGrabMode, PrimaryWindow};
 use mp_fps::{
-    projectile_movement_system, shoot_system, Collider, GameState, MapPlugin, MiniMapPlayer,
-    Player, UiPlugin, Wall,
+    projectile_movement_system, shoot_system, Collider, GameState, MapPlugin, Message,
+    MiniMapPlayer, NetworkReceiver, NetworkSender, Player, UiPlugin, Wall,
 };
+use std::sync::Arc;
+use tokio::net::UdpSocket;
+use tokio::runtime::Runtime;
+use tokio::sync::mpsc;
+use tokio::sync::mpsc::channel;
+use tokio::task::JoinHandle;
 
 fn main() {
+    // Créez un canal mpsc pour la communication réseau
+    let runtime = Runtime::new().unwrap();
+    let (server_incomig_sender, server_incomig_receiver) = channel::<Message>(100);
+    let (client_incomig_sender, client_incomig_receiver) = channel::<Message>(100);
+    let (tx, rx) = channel::<Message>(100);
+
+    let server_handle: JoinHandle<_> = runtime.spawn(run_server(
+        "127.0.0.1:8080",
+        server_incomig_sender,
+        client_incomig_receiver,
+    ));
+
     App::new()
         .add_plugins(DefaultPlugins)
         .init_resource::<ProposedPlayerPosition>()
         .init_resource::<HasCollision>()
+        .insert_resource(NetworkSender(client_incomig_sender))
+        .insert_resource(NetworkReceiver(server_incomig_receiver))
         .add_plugins((MapPlugin, UiPlugin)) // Ajoutez cette ligne
         .add_systems(
             OnEnter(GameState::Playing),
@@ -39,6 +61,12 @@ fn main() {
                 .run_if(in_state(GameState::Playing)),
         )
         .run();
+    match runtime.block_on(server_handle) {
+        Ok(_) => {}
+        Err(e) => {
+            eprintln!("Error running server: {:?}", e);
+        }
+    }
 }
 
 // #[derive(Component, Clone)]
@@ -178,7 +206,6 @@ fn spawn_text(mut commands: Commands) {
             ));
         });
 }
-
 
 fn move_player(
     mut mouse_motion: EventReader<MouseMotion>,
@@ -320,4 +347,39 @@ fn cursor_grab(mut q_windows: Query<&mut Window, With<PrimaryWindow>>) {
 
     // also hide the cursor
     primary_window.cursor.visible = false;
+}
+async fn run_server(
+    addr: &str,
+    server_incoming_sender: mpsc::Sender<Message>,
+    mut client_incoming_receiver: mpsc::Receiver<Message>,
+) -> io::Result<()> {
+    let socket = Arc::new(UdpSocket::bind(addr).await?);
+    let socket_clone = Arc::clone(&socket);
+    let mut buf = [0; 1024];
+    let lolo = addr.to_string();
+
+    // Thread pour écouter les messages du client et les envoyer au serveur
+    tokio::spawn(async move {
+        while let Some(msg) = client_incoming_receiver.recv().await {
+            // Sérialiser le message pour l'envoyer via UDP
+            let serialized_msg = serde_json::to_vec(&msg).unwrap();
+
+            // Envoyer le message au client
+            if let Err(e) = socket_clone.send_to(&serialized_msg, lolo.clone()).await {
+                eprintln!("Failed to send message: {}", e);
+            }
+        }
+    });
+
+    loop {
+        let (len, _) = socket.recv_from(&mut buf).await?;
+        let msg: Message = serde_json::from_slice(&buf[..len]).unwrap();
+
+        println!("Received message from {}: {:?}", addr, msg);
+
+        // Envoyer le message à la chaîne
+        if let Err(e) = server_incoming_sender.send(msg).await {
+            eprintln!("Failed to send message: {}", e);
+        }
+    }
 }
