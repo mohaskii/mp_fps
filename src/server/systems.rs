@@ -1,5 +1,5 @@
 use bevy::{ecs::{event::EventReader, system::{Res, ResMut}}, log::info};
-use multiplayer_demo::PlayerAttributes;
+use mp_fps::PlayerAttributes;
 use renet::{DefaultChannel, RenetServer, ServerEvent};
 
 use crate::{resources::PlayerLobby, SERVER_ADDR};
@@ -11,7 +11,7 @@ pub fn setup_system() {
 pub fn send_message_system(mut server: ResMut<RenetServer>, player_lobby: Res<PlayerLobby>) {
     let chanel = DefaultChannel::Unreliable;
     let lobby = player_lobby.0.clone();
-    let event = multiplayer_demo::ServerMessage::LobbySync(lobby);
+    let event = mp_fps::ServerMessage::LobbySync(lobby);
     let message = bincode::serialize(&event).unwrap();
     print_lobby(&player_lobby);
     server.broadcast_message(chanel, message);
@@ -47,13 +47,13 @@ pub fn handle_events_system(mut server: ResMut<RenetServer>, mut server_events: 
             ServerEvent::ClientConnected { client_id } => {
                 println!("Client {client_id} connected");
                 player_lobby.0.insert(*client_id, PlayerAttributes { position: [0.0, 0.0, 0.0] });
-                let message = bincode::serialize(&multiplayer_demo::ServerMessage::PlayerJoin(*client_id)).unwrap();
+                let message = bincode::serialize(&mp_fps::ServerMessage::PlayerJoin(*client_id)).unwrap();
                 server.broadcast_message_except(*client_id, DefaultChannel::ReliableOrdered, message);
             }
             ServerEvent::ClientDisconnected { client_id, reason } => {
                 println!("Client {client_id} disconnected: {reason}");
                 player_lobby.0.remove(client_id);
-                let message = bincode::serialize(&multiplayer_demo::ServerMessage::PlayerLeave(*client_id)).unwrap();
+                let message = bincode::serialize(&mp_fps::ServerMessage::PlayerLeave(*client_id)).unwrap();
                 server.broadcast_message(DefaultChannel::ReliableOrdered, message);
             }
         }

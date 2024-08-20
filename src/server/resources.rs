@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use bevy::ecs::system::Resource;
-use multiplayer_demo::PlayerAttributes;
+use mp_fps::PlayerAttributes;
 use renet::ClientId;
 
 #[derive(Resource, Clone)]
