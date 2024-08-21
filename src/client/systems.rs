@@ -1,3 +1,9 @@
+use crate::map_plugin::*;
+use bevy::color::palettes::tailwind;
+use bevy::input::mouse::MouseMotion;
+use bevy::pbr::NotShadowCaster;
+use bevy::render::view::RenderLayers;
+use bevy::window::{CursorGrabMode, PrimaryWindow};
 use bevy::{
     asset::Assets,
     core_pipeline::core_3d::Camera3dBundle,
@@ -13,28 +19,21 @@ use bevy::{
     },
     pbr::{MaterialMeshBundle, StandardMaterial},
     prelude::*,
-    render::{mesh::Mesh},
+    render::mesh::Mesh,
     transform::components::Transform,
 };
 use mp_fps::PlayerAttributes;
 use renet::{DefaultChannel, RenetClient};
-use crate::map_plugin::*;
-use bevy::render::view::RenderLayers;
-use bevy::pbr::NotShadowCaster;
-use bevy::color::palettes::tailwind;
-use bevy::input::mouse::MouseMotion;
-use bevy::window::{CursorGrabMode, PrimaryWindow};
 
 use crate::{
     components::{MyPlayer, PlayerEntity, WorldModelCamera},
-    resources::{ProposedPlayerPosition, HasCollision},
     events::{LobbySyncEvent, PlayerDespawnEvent, PlayerSpawnEvent},
+    resources::{HasCollision, ProposedPlayerPosition},
     MyClientId,
 };
 
 const VIEW_MODEL_RENDER_LAYER: usize = 1;
 const DEFAULT_RENDER_LAYER: usize = 0;
-
 
 pub fn send_message_system(mut client: ResMut<RenetClient>, query: Query<(&MyPlayer, &Transform)>) {
     let (_, transform) = query.single();
@@ -179,7 +178,13 @@ pub fn move_player(
         let pitch = -motion.delta.y * 0.002;
         // Order of rotations is important, see <https://gamedev.stackexchange.com/a/136175/103059>
         transform.rotate_y(yaw);
-        transform.rotate_local_x(pitch);
+
+        println!("{}", transform.forward().y + pitch);
+
+        // clamp the pitch between -0.9 & 0.9 of the y axis
+        if transform.forward().y + pitch <= 0.9 && transform.forward().y + pitch >= -0.9 {
+            transform.rotate_local_x(pitch);
+        }
     }
 }
 
@@ -268,7 +273,7 @@ pub fn setup_system(
                 size: Vec3::new(1.0, 1.0, 1.0),
             }, // Ajoutez le collider ici
             SpatialBundle {
-                transform: Transform::from_xyz((18./2.)+1.5, 2.0, (14.0/2.)+1.5),
+                transform: Transform::from_xyz((18. / 2.) + 1.5, 2.0, (14.0 / 2.) + 1.5),
                 ..default()
             },
         ))
@@ -286,19 +291,19 @@ pub fn setup_system(
             ));
             // Spawn view model camera.
             parent.spawn((
-                Camera3dBundle {
-                    camera: Camera {
-                        // Bump the order to render on top of the world model.
-                        order: 1,
-                        ..default()
-                    },
-                    projection: PerspectiveProjection {
-                        fov: 70.0_f32.to_radians(),
-                        ..default()
-                    }
-                    .into(),
-                    ..default()
-                },
+                // Camera3dBundle {
+                //     camera: Camera {
+                //         // Bump the order to render on top of the world model.
+                //         order: 1,
+                //         ..default()
+                //     },
+                //     projection: PerspectiveProjection {
+                //         fov: 70.0_f32.to_radians(),
+                //         ..default()
+                //     }
+                //     .into(),
+                //     ..default()
+                // },
                 // Only render objects belonging to the view model.
                 RenderLayers::layer(VIEW_MODEL_RENDER_LAYER),
             ));
@@ -375,7 +380,6 @@ pub fn handle_lobby_sync_event_system(
         }
     }
 }
-
 
 pub fn spawn_crosshair(
     mut commands: Commands,
