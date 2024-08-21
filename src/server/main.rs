@@ -1,14 +1,14 @@
 use std::{collections::HashMap, net::UdpSocket, time::SystemTime};
 
 use bevy::{
-    app::{App, Startup, Update}, log::LogPlugin, MinimalPlugins
+    app::{App, Startup, Update}, log::LogPlugin, prelude::IntoSystemConfigs, MinimalPlugins
 };
 use bevy_renet::{transport::NetcodeServerPlugin, RenetServerPlugin};
 use renet::{
     transport::{NetcodeServerTransport, ServerAuthentication, ServerConfig},
     ConnectionConfig, RenetServer,
 };
-use systems::{handle_events_system, receive_message_system, send_message_system, setup_system};
+use systems::{handle_events_system, print_lobby, receive_message_system, send_message_system, setup_system};
 use resources::PlayerLobby;
 
 mod systems;
@@ -47,7 +47,7 @@ fn main() {
     app.insert_resource(PlayerLobby(HashMap::default()));
 
     app.add_systems(Startup, setup_system);
-    app.add_systems(Update, send_message_system);
+    app.add_systems(Update, send_message_system.before(print_lobby));
     app.add_systems(Update, receive_message_system);
     app.add_systems(Update, handle_events_system);
     app.run();

@@ -1,4 +1,4 @@
-use bevy::{ecs::{event::EventReader, system::{Res, ResMut}}, log::info};
+use bevy::{ecs::{event::EventReader, system::{Res, ResMut}}, log::info, prelude::Query};
 use mp_fps::PlayerAttributes;
 use renet::{DefaultChannel, RenetServer, ServerEvent};
 
@@ -13,18 +13,19 @@ pub fn send_message_system(mut server: ResMut<RenetServer>, player_lobby: Res<Pl
     let lobby = player_lobby.0.clone();
     let event = mp_fps::ServerMessage::LobbySync(lobby);
     let message = bincode::serialize(&event).unwrap();
-    print_lobby(&player_lobby);
+    // print_lobby(&player_lobby);
     server.broadcast_message(chanel, message);
 }
 
-fn print_lobby(lobby: &PlayerLobby) {
-    info!("Lobby:");
-    info!("------");
-
+pub fn print_lobby(lobby: Res<PlayerLobby>) {
     if lobby.0.is_empty() {
         info!("Empty");
         return;
     }
+
+    info!("Lobby:");
+    info!("------");
+
 
     for (client_id, player) in lobby.0.iter() {
         info!("Client {}: {:?}", client_id, player);

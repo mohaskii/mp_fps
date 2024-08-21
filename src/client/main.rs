@@ -1,20 +1,35 @@
-use std::{collections::HashMap, net::{SocketAddrV4, UdpSocket}, time::SystemTime};
+use std::{
+    collections::HashMap,
+    net::{SocketAddrV4, UdpSocket},
+    time::SystemTime,
+};
 
-use bevy::{app::{App, Startup, Update}, log::info, DefaultPlugins};
+use bevy::{
+    app::{App, Startup, Update}, log::info, window::{Cursor, CursorGrabMode, WindowMode}, DefaultPlugins
+};
 use bevy_renet::{transport::NetcodeClientPlugin, RenetClientPlugin};
-use renet::{transport::{ClientAuthentication, NetcodeClientTransport}, ClientId, ConnectionConfig, RenetClient};
+use renet::{
+    transport::{ClientAuthentication, NetcodeClientTransport},
+    ClientId, ConnectionConfig, RenetClient,
+};
 
-use crate::{resources::{MyClientId, PlayerEntities}, systems::{handle_lobby_sync_event_system, handle_player_spawn_event_system, receive_message_system, send_message_system, setup_system, update_player_movement_system}};
+use crate::{
+    resources::{MyClientId, PlayerEntities},
+    systems::{
+        handle_lobby_sync_event_system, handle_player_spawn_event_system, receive_message_system,
+        send_message_system, setup_system, update_player_movement_system,
+    },
+};
 
 mod systems;
 use systems::*;
-mod events;
 mod components;
+mod events;
 mod resources;
 use resources::*;
 mod map_plugin;
-use map_plugin::*;
 use bevy::prelude::*;
+use map_plugin::*;
 
 fn main() {
     let mut app = App::new();
@@ -22,7 +37,20 @@ fn main() {
     // base plugins
     app.add_plugins(RenetClientPlugin);
     app.add_plugins(NetcodeClientPlugin);
-    app.add_plugins(DefaultPlugins);
+    // app.add_plugins();
+    app.add_plugins(DefaultPlugins.set(WindowPlugin {
+        primary_window: Some(Window{
+            mode:WindowMode::Fullscreen,
+            cursor:Cursor{
+                visible:false,
+                grab_mode:CursorGrabMode::Confined,
+                ..default()
+            },
+            ..default()
+        }),
+        ..default()
+    }));
+
     app.add_plugins(MapPlugin);
 
     // Get the server address from the command line arguments
@@ -74,7 +102,7 @@ fn main() {
             handle_player_spawn_event_system,
             handle_lobby_sync_event_system,
         )
-        .chain(),
+            .chain(),
     );
 
     app.add_systems(
@@ -88,7 +116,10 @@ fn main() {
         ),
     );
 
-    info!("Client {} started with server address {}", client_id, server_address);
+    info!(
+        "Client {} started with server address {}",
+        client_id, server_address
+    );
 
     app.run();
 }
