@@ -131,6 +131,7 @@ pub fn spawn_lights(mut commands: Commands) {
         PointLightBundle {
             point_light: PointLight {
                 color: Color::from(tailwind::ROSE_300),
+                intensity:4000.0,
                 shadows_enabled: true,
                 ..default()
             },
@@ -262,6 +263,7 @@ pub fn setup_system(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    ass: Res<AssetServer>,
 ) {
     let arm = meshes.add(Cuboid::new(0.1, 0.1, 0.5));
     let arm_material = materials.add(Color::from(tailwind::TEAL_200));
@@ -278,6 +280,7 @@ pub fn setup_system(
             },
         ))
         .with_children(|parent| {
+            let riffle = ass.load("m4_carbine_rifle.glb#Scene0");
             parent.spawn((
                 WorldModelCamera,
                 Camera3dBundle {
@@ -310,10 +313,17 @@ pub fn setup_system(
 
             // Spawn the player's right arm.
             parent.spawn((
-                MaterialMeshBundle {
-                    mesh: arm,
-                    material: arm_material,
-                    transform: Transform::from_xyz(0.2, -0.1, -0.25),
+                SceneBundle {
+                    scene: riffle,
+                    // material: arm_material,
+                    transform: Transform {
+                        scale: Vec3 {
+                            x: 0.15,
+                            y: 0.15,
+                            z: 0.15,
+                        },
+                        ..Transform::from_xyz(0.1, -0.1, -0.25)
+                    },
                     ..default()
                 },
                 // Ensure the arm is only rendered by the view model camera.
