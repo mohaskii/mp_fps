@@ -5,7 +5,10 @@ use std::{
 };
 
 use bevy::{
-    app::{App, Startup, Update}, log::info, window::{Cursor, CursorGrabMode, WindowMode}, DefaultPlugins
+    app::{App, Startup, Update},
+    log::info,
+    window::{Cursor, CursorGrabMode, WindowMode},
+    DefaultPlugins,
 };
 use bevy_renet::{transport::NetcodeClientPlugin, RenetClientPlugin};
 use renet::{
@@ -39,11 +42,11 @@ fn main() {
     app.add_plugins(NetcodeClientPlugin);
     // app.add_plugins();
     app.add_plugins(DefaultPlugins.set(WindowPlugin {
-        primary_window: Some(Window{
-            mode:WindowMode::Fullscreen,
-            cursor:Cursor{
-                visible:false,
-                grab_mode:CursorGrabMode::Confined,
+        primary_window: Some(Window {
+            mode: WindowMode::Fullscreen,
+            cursor: Cursor {
+                visible: false,
+                grab_mode: CursorGrabMode::Confined,
                 ..default()
             },
             ..default()
