@@ -265,13 +265,8 @@ pub fn check_collision_system(
 
 pub fn setup_system(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
     ass: Res<AssetServer>,
 ) {
-    let arm = meshes.add(Cuboid::new(0.1, 0.1, 0.5));
-    let arm_material = materials.add(Color::from(tailwind::TEAL_200));
-
     commands
         .spawn((
             MyPlayer,
@@ -289,7 +284,7 @@ pub fn setup_system(
                 WorldModelCamera,
                 Camera3dBundle {
                     projection: PerspectiveProjection {
-                        fov: 90.0_f32.to_radians(),
+                        fov: 60.0_f32.to_radians(),
                         ..default()
                     }
                     .into(),

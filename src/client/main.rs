@@ -10,6 +10,7 @@ use bevy::{
     window::{Cursor, CursorGrabMode, WindowMode},
     DefaultPlugins,
 };
+use bevy_dev_tools::fps_overlay::{FpsOverlayConfig, FpsOverlayPlugin};
 use bevy_renet::{transport::NetcodeClientPlugin, RenetClientPlugin};
 use renet::{
     transport::{ClientAuthentication, NetcodeClientTransport},
@@ -40,7 +41,16 @@ fn main() {
     // base plugins
     app.add_plugins(RenetClientPlugin);
     app.add_plugins(NetcodeClientPlugin);
-    // app.add_plugins();
+    app.add_plugins(FpsOverlayPlugin{
+        
+        config:FpsOverlayConfig {
+            text_config:TextStyle {
+                font_size: 50.0,
+                color: Color::srgb(0.0, 1.0, 0.0),
+                font: default(),
+            },
+        },
+    });
     app.add_plugins(DefaultPlugins.set(WindowPlugin {
         primary_window: Some(Window {
             mode: WindowMode::Fullscreen,
