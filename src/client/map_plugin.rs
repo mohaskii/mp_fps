@@ -18,6 +18,7 @@ fn spawn_world_model(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut mini_map_materials: ResMut<Assets<ColorMaterial>>,
+    asset_server: Res<AssetServer>,
 ) {
     // Définir la carte du labyrinthe
     commands.spawn(Camera2dBundle::default());
@@ -42,12 +43,24 @@ fn spawn_world_model(
     let maze_width = maze[0].len() as f32;
     let maze_height = maze.len() as f32;
 
+    let wall_texture_handle = asset_server.load("red-bricks.png");
+    let floor_texture_handle = asset_server.load("granite-tile.png");
+
+
     // Créer le sol
     let floor = meshes.add(Plane3d::new(
         Vec3::Y,
         Vec2::new(maze_width / 2., maze_height / 2.),
     ));
-    let floor_material = materials.add(Color::WHITE);
+    let floor_material = materials.add(StandardMaterial {
+        base_color_texture: Some(floor_texture_handle),
+        ..Default::default()
+    });
+
+    let wall_material = materials.add(StandardMaterial {
+        base_color_texture: Some(wall_texture_handle),
+        ..Default::default()
+    });
 
     commands.spawn(PbrBundle {
         mesh: floor,
@@ -59,8 +72,8 @@ fn spawn_world_model(
     let cube_half_size = cube_size / 2.0;
 
     // Créer les cubes pour le labyrinthe
-    let cube = meshes.add(Cuboid::new(1.0, 1.0, 1.0));
-    let cube_material = materials.add(Color::BLACK);
+    let cube = meshes.add(Cuboid::new(1.0, 2.0, 1.0));
+    // let cube_material = materials.add(Color::BLACK);
     let mini_map_cube_material = mini_map_materials.add(Color::srgb(0.02, 0.4, 0.4));
 
     // Créer l'entité parent pour le mini-map
@@ -86,7 +99,7 @@ fn spawn_world_model(
                 commands.spawn((
                     PbrBundle {
                         mesh: cube.clone(),
-                        material: cube_material.clone(),
+                        material: wall_material.clone(),
                         transform: Transform::from_xyz(
                             (x as f32 + cube_half_size) + maze_width / 2.,
                             0.5,

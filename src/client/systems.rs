@@ -1,5 +1,6 @@
 use crate::map_plugin::*;
-use bevy::color::palettes::tailwind;
+use bevy::color::palettes::css::{RED, WHITE};
+use bevy::color::palettes::tailwind::{self, BLUE_500};
 use bevy::input::mouse::MouseMotion;
 use bevy::pbr::NotShadowCaster;
 use bevy::render::view::RenderLayers;
@@ -123,6 +124,7 @@ pub fn apply_movement(
             // Appliquer le mouvement proposé s'il n'y a pas de collision
             player_transform.translation = proposed_position.0;
         }
+        println!("player position: {:?}", player_transform.translation);
     }
 }
 
@@ -130,14 +132,16 @@ pub fn spawn_lights(mut commands: Commands) {
     commands.spawn((
         PointLightBundle {
             point_light: PointLight {
-                color: Color::from(tailwind::ROSE_300),
-                intensity:4000.0,
+                color: WHITE.into(),
+                intensity:100_000.0,
                 shadows_enabled: true,
+                radius: 100.0,
                 ..default()
             },
-            transform: Transform::from_xyz(-2.0, 4.0, -0.75),
+            transform: Transform::from_xyz(18.5, 2.5, 15.5),
             ..default()
         },
+        
         // The light source illuminates both the world model and the view model.
         RenderLayers::from_layers(&[DEFAULT_RENDER_LAYER, VIEW_MODEL_RENDER_LAYER]),
     ));
@@ -229,7 +233,7 @@ fn check_collision(
     wall_position: Vec3,
     wall_size: Vec3,
 ) -> bool {
-    let collision_factor = 0.7; // Réduction de 20% de la distance de collision
+    let collision_factor = 0.6; // Réduction de 20% de la distance de collision
     let min_distance = (player_size + wall_size) * 0.5 * collision_factor;
     let actual_distance = player_position - wall_position;
     actual_distance.abs().cmple(min_distance).all()
