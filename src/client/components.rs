@@ -12,3 +12,7 @@ pub struct WorldModelCamera;
 
 #[derive(Component, Default)]
 pub struct HasCollision(pub bool);
+#[derive(Component)]
+pub struct MenuElement;
+#[derive(Component)]
+pub struct PlayButton;
