@@ -14,24 +14,21 @@ pub struct PlayerAttributes {
 pub enum ClientMessage {
     PlayerMove(Transform),
     Shoot(ProjectileProperties),    
-    PlayerRotation(PlayerRotationValue),
 }
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ProjectileProperties {
     pub position: Transform,
-    pub velocity: f32,
-    pub rotation: [f32; 4],
+    pub rotation: Quaternion,
+    pub direction: Transform,
+    
 }
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct PlayerRotationValue {
-    pub rotation: [f32; 2]
-}
+
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum ServerMessage {
-    PlayerRotation(HashMap<ClientId, PlayerRotationValue>),
+
     LobbySync(HashMap<ClientId, PlayerAttributes>),
-    Shot(ClientId),
+    Shoot(ProjectileProperties),
     PlayerJoin(ClientId),
     PlayerLeave(ClientId),
 }

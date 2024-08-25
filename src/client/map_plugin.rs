@@ -14,7 +14,7 @@ impl Plugin for MapPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             OnEnter(GameState::Playing),
-            (spawn_world_model, despawn_menu),
+            ( despawn_menu,spawn_world_model),
         );
     }
 }

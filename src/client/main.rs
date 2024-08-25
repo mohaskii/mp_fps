@@ -40,13 +40,18 @@ fn main() {
     let mut app = App::new();
 
     // base plugins
-    app.add_plugins(RenetClientPlugin);
-    app.add_plugins(NetcodeClientPlugin);
-    app.add_plugins(DefaultPlugins);
-    app.add_plugins(MapPlugin);
-    app.add_plugins(UiPlugin);
-    
-
+    // app.add_plugins(RenetClientPlugin);
+    // app.add_plugins(NetcodeClientPlugin);
+    // app.add_plugins(DefaultPlugins);
+    // app.add_plugins(MapPlugin);
+    // app.add_plugins(UiPlugin);
+    app.add_plugins((
+        RenetClientPlugin,
+        NetcodeClientPlugin,
+        DefaultPlugins,
+        MapPlugin,
+        UiPlugin,
+    ));
     // Get the server address from the command line arguments
     let server_address = std::env::args()
         .nth(1)
@@ -62,7 +67,6 @@ fn main() {
     app.insert_resource(PlayerEntities(HashMap::new()));
     app.insert_resource(ProposedPlayerPosition(Vec3::ZERO)); // Assuming ProposedPlayerPosition is a struct with a Vec3 field initialized to Vec3::ZERO
     app.insert_resource(HasCollision(false));
-
 
     let authentication = ClientAuthentication::Unsecure {
         server_addr: std::net::SocketAddr::V4(server_address),
@@ -96,6 +100,8 @@ fn main() {
             receive_message_system,
             handle_player_spawn_event_system,
             handle_lobby_sync_event_system,
+            shoot_system, // Système pour tirer
+            projectile_movement_system,
         )
             .chain()
             .run_if(in_state(GameState::Playing)),

@@ -1,3 +1,4 @@
+use bevy::prelude::*;
 use bevy::ecs::component::Component;
 use renet::ClientId;
 
@@ -18,3 +19,8 @@ pub struct MenuElement;
 pub struct PlayButton;
 #[derive(Component)]
 pub struct MiniMapPlayer;
+#[derive(Component)]
+pub struct Projectile {
+    pub direction: Vec3,
+    pub speed: f32,
+}
