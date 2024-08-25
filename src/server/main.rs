@@ -13,7 +13,7 @@ use resources::PlayerLobby;
 
 mod systems;
 mod resources;
-
+mod event;
 const SERVER_ADDR: &str = "127.0.0.1:5000";
 
 fn main() {

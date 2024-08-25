@@ -16,3 +16,5 @@ pub struct HasCollision(pub bool);
 pub struct MenuElement;
 #[derive(Component)]
 pub struct PlayButton;
+#[derive(Component)]
+pub struct MiniMapPlayer;

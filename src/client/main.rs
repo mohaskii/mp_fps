@@ -63,6 +63,7 @@ fn main() {
     app.insert_resource(ProposedPlayerPosition(Vec3::ZERO)); // Assuming ProposedPlayerPosition is a struct with a Vec3 field initialized to Vec3::ZERO
     app.insert_resource(HasCollision(false));
 
+
     let authentication = ClientAuthentication::Unsecure {
         server_addr: std::net::SocketAddr::V4(server_address),
         client_id,
@@ -107,7 +108,7 @@ fn main() {
             spawn_lights,
             spawn_text,
             spawn_crosshair,
-            cursor_grab,
+            // cursor_grab,
         ),
     );
 

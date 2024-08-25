@@ -1,3 +1,13 @@
+use crate::{
+    components::{MenuElement, MiniMapPlayer, PlayButton},
+    map_plugin::*,
+    states::GameState,
+};
+use bevy::color::palettes::tailwind;
+use bevy::input::mouse::MouseMotion;
+use bevy::pbr::NotShadowCaster;
+use bevy::render::view::RenderLayers;
+use bevy::window::{CursorGrabMode, PrimaryWindow};
 use bevy::{
     asset::Assets,
     core_pipeline::core_3d::Camera3dBundle,
@@ -13,34 +23,30 @@ use bevy::{
     },
     pbr::{MaterialMeshBundle, StandardMaterial},
     prelude::*,
+    sprite::MaterialMesh2dBundle,
     // render::{mesh::Mesh},
     transform::components::Transform,
-    sprite::MaterialMesh2dBundle
 };
-use mp_fps::PlayerAttributes;
+use mp_fps::{ClientMessage, PlayerAttributes, PlayerRotationValue};
 use renet::{DefaultChannel, RenetClient};
-use crate::{components::{MenuElement, PlayButton}, map_plugin::*, states::GameState};
-use bevy::render::view::RenderLayers;
-use bevy::pbr::NotShadowCaster;
-use bevy::color::palettes::tailwind;
-use bevy::input::mouse::MouseMotion;
-use bevy::window::{CursorGrabMode, PrimaryWindow};
 
 use crate::{
     components::{MyPlayer, PlayerEntity, WorldModelCamera},
-    resources::{ProposedPlayerPosition, HasCollision},
     events::{LobbySyncEvent, PlayerDespawnEvent, PlayerSpawnEvent},
+    resources::{HasCollision, ProposedPlayerPosition},
     MyClientId,
 };
 
 const VIEW_MODEL_RENDER_LAYER: usize = 1;
 const DEFAULT_RENDER_LAYER: usize = 0;
 
-
 pub fn send_message_system(mut client: ResMut<RenetClient>, query: Query<(&MyPlayer, &Transform)>) {
     let (_, transform) = query.single();
+    let mut r = [0.0; 4];
+    transform.rotation.write_to_slice(&mut r);
     let player_sync = PlayerAttributes {
         position: transform.translation.into(),
+        rotation: r,
     };
     let message = bincode::serialize(&player_sync).unwrap();
     client.send_message(DefaultChannel::Unreliable, message);
@@ -108,9 +114,11 @@ pub fn update_player_movement_system(
 
 pub fn apply_movement(
     mut query: Query<&mut Transform, With<MyPlayer>>,
+    mut minimap_player_query: Query<&mut Transform, (With<MiniMapPlayer>, Without<MyPlayer>)>,
     proposed_position: Res<ProposedPlayerPosition>,
     has_collision: Res<HasCollision>,
 ) {
+    let mut minimap_player_transform = minimap_player_query.get_single_mut().unwrap();
     if let Ok(mut player_transform) = query.get_single_mut() {
         if has_collision.0 {
             // Calculer la direction de la collision
@@ -124,6 +132,11 @@ pub fn apply_movement(
         } else {
             // Appliquer le mouvement proposé s'il n'y a pas de collision
             player_transform.translation = proposed_position.0;
+            minimap_player_transform.translation = Vec3::new(
+                (player_transform.translation.x.floor() - (23. / 2.) + 0.5) * 10.,
+                (player_transform.translation.z.floor() - (14. / 2.) + 0.5) * 10.,
+                0.,
+            );
         }
     }
 }
@@ -171,6 +184,7 @@ pub fn spawn_text(mut commands: Commands) {
 }
 
 pub fn move_player(
+    mut client: ResMut<RenetClient>,
     mut mouse_motion: EventReader<MouseMotion>,
     mut player: Query<&mut Transform, With<MyPlayer>>,
 ) {
@@ -181,6 +195,13 @@ pub fn move_player(
         // Order of rotations is important, see <https://gamedev.stackexchange.com/a/136175/103059>
         transform.rotate_y(yaw);
         transform.rotate_local_x(pitch);
+        
+
+        let message = bincode::serialize(&ClientMessage::PlayerRotation(PlayerRotationValue {
+            rotation: [pitch, yaw],
+        }))
+        .unwrap();
+        client.send_message(DefaultChannel::ReliableOrdered, message);
     }
 }
 
@@ -269,7 +290,7 @@ pub fn setup_system(
                 size: Vec3::new(1.0, 1.0, 1.0),
             }, // Ajoutez le collider ici
             SpatialBundle {
-                transform: Transform::from_xyz((18./2.)+1.5, 2.0, (14.0/2.)+1.5),
+                transform: Transform::from_xyz((23. / 2.) + 1.5, 2.0, (14.0 / 2.) + 1.5),
                 ..default()
             },
         ))
@@ -301,7 +322,7 @@ pub fn setup_system(
                     ..default()
                 },
                 // Only render objects belonging to the view model.
-                RenderLayers::layer(VIEW_MODEL_RENDER_LAYER),
+                // RenderLayers::layer(VIEW_MODEL_RENDER_LAYER),
             ));
 
             // Spawn the player's right arm.
@@ -313,7 +334,7 @@ pub fn setup_system(
                     ..default()
                 },
                 // Ensure the arm is only rendered by the view model camera.
-                RenderLayers::layer(VIEW_MODEL_RENDER_LAYER),
+                // RenderLayers::layer(VIEW_MODEL_RENDER_LAYER),
                 // The arm is free-floating, so shadows would look weird.
                 NotShadowCaster,
             ));
@@ -326,21 +347,38 @@ pub fn handle_player_spawn_event_system(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut spawn_events: EventReader<PlayerSpawnEvent>,
 ) {
+    let arm = meshes.add(Cuboid::new(0.1, 0.1, 0.5));
+    let arm_material = materials.add(Color::from(tailwind::TEAL_200));
     for event in spawn_events.read() {
         info!("Handling player spawn event: {:?}", event.0);
         let client_id = event.0;
 
-        commands.spawn((
-            MaterialMeshBundle {
-                material: materials.add(StandardMaterial {
-                    base_color: Color::rgb(1.0, 0.0, 0.0),
+        commands
+            .spawn((
+                // Ajoutez le collider ici
+                SpatialBundle {
+                    transform: Transform::from_xyz((23. / 2.) + 1.5, 2.0, (14.0 / 2.) + 1.5),
                     ..default()
-                }),
-                mesh: meshes.add(Cuboid::default()),
-                ..default()
-            },
-            PlayerEntity(client_id),
-        ));
+                },
+                PlayerEntity(client_id),
+            ))
+            .with_children(|parent| {
+                // Spawn view model camera.
+
+                // Spawn the player's right arm.
+                parent.spawn((
+                    MaterialMeshBundle {
+                        mesh: arm.clone(),
+                        material: arm_material.clone(),
+                        transform: Transform::from_xyz(0.2, -0.1, -0.25),
+                        ..default()
+                    },
+                    // Ensure the arm is only rendered by the view model camera.
+                    // RenderLayers::layer(VIEW_MODEL_RENDER_LAYER),
+                    // The arm is free-floating, so shadows would look weird.
+                    NotShadowCaster,
+                ));
+            });
     }
 }
 
@@ -365,7 +403,9 @@ pub fn handle_lobby_sync_event_system(
         for (player_entity, mut transform) in query.iter_mut() {
             if *client_id == player_entity.0 {
                 let new_position = player_sync.position;
+                let new_rotation = player_sync.rotation;
                 transform.translation = new_position.into();
+                transform.rotation = Quat::from_array(new_rotation);
                 found = true;
             }
         }
@@ -376,7 +416,6 @@ pub fn handle_lobby_sync_event_system(
         }
     }
 }
-
 
 pub fn spawn_crosshair(
     mut commands: Commands,
@@ -422,7 +461,7 @@ pub fn cursor_grab(mut q_windows: Query<&mut Window, With<PrimaryWindow>>) {
     // also hide the cursor
     primary_window.cursor.visible = false;
 }
- pub fn despawn_menu(mut commands: Commands, menu_elements: Query<Entity, With<MenuElement>>) {
+pub fn despawn_menu(mut commands: Commands, menu_elements: Query<Entity, With<MenuElement>>) {
     for entity in menu_elements.iter() {
         commands.entity(entity).despawn_recursive();
     }
@@ -439,7 +478,6 @@ pub fn button_system(
             Interaction::Pressed => {
                 *color = Color::srgb(0.35, 0.75, 0.35).into();
                 next_state.set(GameState::Playing);
-                
             }
             Interaction::Hovered => {
                 *color = Color::srgb(0.25, 0.25, 0.25).into();
@@ -462,29 +500,34 @@ pub fn spawn_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn((
             ImageBundle {
-            style: Style {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
+                style: Style {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    ..default()
+                },
+                image: UiImage::new(background_image),
                 ..default()
             },
-            image: UiImage::new(background_image),
-            ..default()
-        }, MenuElement))
+            MenuElement,
+        ))
         .with_children(|parent| {
             parent
-                .spawn((ButtonBundle {
-                    style: Style {
-                        width: Val::Px(150.0),
-                        height: Val::Px(65.0),
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
+                .spawn((
+                    ButtonBundle {
+                        style: Style {
+                            width: Val::Px(150.0),
+                            height: Val::Px(65.0),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        background_color: Color::srgb(0.15, 0.15, 0.15).into(),
                         ..default()
                     },
-                    background_color: Color::srgb(0.15, 0.15, 0.15).into(),
-                    ..default()
-                }, PlayButton))
+                    PlayButton,
+                ))
                 .with_children(|parent| {
                     parent.spawn(TextBundle::from_section(
                         "Play",
@@ -512,20 +555,48 @@ pub fn spawn_world_model(
         ..default()
     });
     let maze = vec![
-        vec![1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-        vec![1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1],
-        vec![1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1],
-        vec![1, 0, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1],
-        vec![1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-        vec![1, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1],
-        vec![1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1],
-        vec![1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-        vec![1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1],
-        vec![1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-        vec![1, 0, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1],
-        vec![1, 0, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1],
-        vec![1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1],
-        vec![1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        vec![
+            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        ],
+        vec![
+            1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1,
+        ],
+        vec![
+            1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 1,
+        ],
+        vec![
+            1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 1,
+        ],
+        vec![
+            1, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 1, 0, 0, 0, 1,
+        ],
+        vec![
+            1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1,
+        ],
+        vec![
+            1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1,
+        ],
+        vec![
+            1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1,
+        ],
+        vec![
+            1, 0, 0, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1,
+        ],
+        vec![
+            1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        ],
+        vec![
+            1, 1, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 1, 0, 0, 1,
+        ],
+        vec![
+            1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1,
+        ],
+        vec![
+            1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+        ],
+        vec![
+            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+        ],
     ];
 
     // Calculer la taille du sol en fonction de la taille de la matrice du labyrinthe
@@ -554,19 +625,23 @@ pub fn spawn_world_model(
     let mini_map_cube_material = mini_map_materials.add(Color::srgb(0.02, 0.4, 0.4));
 
     // Créer l'entité parent pour le mini-map
-    let mini_map_parent = commands.spawn(TransformBundle::default()).id();
+    let mini_map_parent = commands.spawn(SpatialBundle::default()).id();
+
     let p = commands
-        .spawn((MaterialMesh2dBundle {
-            mesh: meshes.add(Rectangle::default()).into(),
-            transform: Transform::from_xyz(
-                (1. + cube_half_size) * 8.,
-                (1. + cube_half_size) * 8.,
-                0.0,
-            )
-            .with_scale(Vec3::splat(8.)),
-            material: mini_map_materials.add(Color::WHITE),
-            ..default()
-        },))
+        .spawn((
+            MaterialMesh2dBundle {
+                mesh: meshes.add(Rectangle::default()).into(),
+                transform: Transform::from_xyz(
+                    (1. + cube_half_size) * 10.,
+                    (1. + cube_half_size) * 10.,
+                    0.0,
+                )
+                .with_scale(Vec3::splat(10.)),
+                material: mini_map_materials.add(Color::WHITE),
+                ..default()
+            },
+            MiniMapPlayer,
+        ))
         .id();
     commands.entity(mini_map_parent).push_children(&[p]);
 
