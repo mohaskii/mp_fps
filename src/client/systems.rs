@@ -3,6 +3,9 @@ use crate::{
     map_plugin::*,
     states::GameState,
 };
+
+pub const VIEW_MODEL_RENDER_LAYER: usize = 1;
+const DEFAULT_RENDER_LAYER: usize = 0;
 use bevy::color::palettes::tailwind;
 use bevy::input::mouse::MouseMotion;
 use bevy::pbr::NotShadowCaster;
@@ -312,7 +315,7 @@ pub fn setup_system(
                     ..default()
                 },
                 // Only render objects belonging to the view model.
-                // RenderLayers::layer(VIEW_MODEL_RENDER_LAYER),
+                RenderLayers::layer(VIEW_MODEL_RENDER_LAYER),
             ));
 
             // Spawn the player's right arm.
@@ -324,7 +327,7 @@ pub fn setup_system(
                     ..default()
                 },
                 // Ensure the arm is only rendered by the view model camera.
-                // RenderLayers::layer(VIEW_MODEL_RENDER_LAYER),
+                RenderLayers::layer(VIEW_MODEL_RENDER_LAYER),
                 // The arm is free-floating, so shadows would look weird.
                 NotShadowCaster,
             ));
