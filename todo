@@ -1,38 +1,38 @@
 Maze Wars Clone with Bevy:
     Set up project:
-        ☐ Initialize new Rust project with Bevy
-        ☐ Set up Git repository
-        ☐ Configure Bevy for fast compilation
+        ✔ Initialize new Rust project with Bevy @done(24-08-26 13:00)
+        ✔ Set up Git repository @done(24-08-26 13:00)
+        ✔ Configure Bevy for fast compilation @done(24-08-26 13:00)
 
     Implement basic Bevy structure:
-        ☐ Create main system and basic plugins
-        ☐ Set up camera system
-        ☐ Implement simple state management
+        ✔ Create main system and basic plugins @done(24-08-26 13:00)
+        ✔ Set up camera system @done(24-08-26 13:00)
+        ✔ Implement simple state management @done(24-08-26 13:00)
 
     Design and implement maze:
-        ☐ Create ECS component for maze tiles
-        ☐ Implement maze generation system
-        ☐ Create 3D models for walls
-        ☐ Implement system to spawn maze entities
+        ✔ Create ECS component for maze tiles @done(24-08-26 13:00)
+        ✔ Implement maze generation system @done(24-08-26 13:00)
+        ✔ Create 3D models for walls @done(24-08-26 13:00)
+        ✔ Implement system to spawn maze entities @done(24-08-26 13:00)
 
     Player movement and collision:
-        ☐ Create player component and bundle
-        ☐ Implement movement and rotation systems
-        ☐ Add collision detection with maze walls
+        ✔ Create player component and bundle @done(24-08-26 13:00)
+        ✔ Implement movement and rotation systems @done(24-08-26 13:00)
+        ✔ Add collision detection with maze walls @done(24-08-26 13:00)
 
     First-person view:
-        ☐ Set up first-person camera
-        ☐ Implement view bobbing
-        ☐ Add simple textures to walls
+        ✔ Set up first-person camera @done(24-08-26 13:00)
+        ✔ Implement view bobbing @done(24-08-26 13:00)
+        ✔ Add simple textures to walls @done(24-08-26 13:00)
 
     Multiplayer functionality:
-        ☐ Integrate networking library
-        ☐ Implement server plugin
-        ☐ Create client plugin
-        ☐ Implement player synchronization
+        ✔ Integrate networking library @done(24-08-26 13:00)
+        ✔ Implement server plugin @done(24-08-26 13:00)
+        ✔ Create client plugin @done(24-08-26 13:00)
+        ✔ Implement player synchronization @done(24-08-26 13:00)
 
     User interface:
-        ☐ Create mini-map with Bevy UI
+        ✔ Create mini-map with Bevy UI @done(24-08-26 13:00)
         ☐ Implement frame rate counter
         ☐ Design start screen for IP and username input
 
@@ -46,7 +46,7 @@ Maze Wars Clone with Bevy:
         ☐ Optimize parallel execution
 
     Game mechanics:
-        ☐ Implement shooting mechanism
+        ✔ Implement shooting mechanism @done(24-08-26 13:01)
         ☐ Add health and damage components
         ☐ Implement respawn logic
 
