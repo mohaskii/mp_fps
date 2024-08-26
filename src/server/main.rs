@@ -6,17 +6,18 @@ use bevy::{
     MinimalPlugins,
 };
 use bevy_renet::{transport::NetcodeServerPlugin, RenetServerPlugin};
+use mp_fps::ProjectileProperties;
 use renet::{
     transport::{NetcodeServerTransport, ServerAuthentication, ServerConfig},
     ConnectionConfig, RenetServer,
 };
-use resources::PlayerLobby;
-use systems::{handle_events_system, receive_message_system, send_message_system, setup_system};
+use resources::{PlayerLobby, ProjectileBuffer};
+use systems::{handle_events_system, handle_shoot_event_system, receive_message_system, receive_message_system_reliable, send_message_system, setup_system};
 
 mod event;
 mod resources;
 mod systems;
-use event::Shoot;
+use event::ShootEvent;
 const SERVER_ADDR: &str = "127.0.0.1:5000";
 
 fn main() {
@@ -29,7 +30,11 @@ fn main() {
 
     // renet server
     let server = RenetServer::new(ConnectionConfig::default());
+    
+    let  projectile_buffer = ProjectileBuffer::default();
+    app.insert_resource(projectile_buffer);
     app.insert_resource(server);
+
 
     app.add_plugins(NetcodeServerPlugin);
     let server_addr = SERVER_ADDR.parse().unwrap();
@@ -45,7 +50,7 @@ fn main() {
     };
     let transport = NetcodeServerTransport::new(server_config, socket).unwrap();
     app.insert_resource(transport);
-    app.add_event::<Shoot>();
+    app.add_event::<ShootEvent>();
     // game systems
     app.insert_resource(PlayerLobby(HashMap::default()));
 
@@ -53,6 +58,8 @@ fn main() {
     app.add_systems(Update, send_message_system);
     app.add_systems(Update, receive_message_system);
     app.add_systems(Update, handle_events_system);
+    app.add_systems(Update, handle_shoot_event_system);
+    app.add_systems(Update, receive_message_system_reliable);
 
     app.run();
 }

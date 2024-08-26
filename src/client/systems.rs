@@ -1,5 +1,6 @@
 use crate::{
     components::{MenuElement, MiniMapPlayer, PlayButton, Projectile},
+    events::{PlayerMoveEvent, ShootEvent},
     map_plugin::*,
     states::GameState,
 };
@@ -30,7 +31,7 @@ use bevy::{
     // render::{mesh::Mesh},
     transform::components::Transform,
 };
-use mp_fps::{ClientMessage, PlayerAttributes};
+use mp_fps::{ClientMessage, PlayerAttributes, ProjectileProperties};
 use renet::{DefaultChannel, RenetClient};
 
 use crate::{
@@ -40,8 +41,6 @@ use crate::{
     MyClientId,
 };
 
-
-
 pub fn send_message_system(mut client: ResMut<RenetClient>, query: Query<(&MyPlayer, &Transform)>) {
     let (_, transform) = query.single();
     let mut r = [0.0; 4];
@@ -50,7 +49,7 @@ pub fn send_message_system(mut client: ResMut<RenetClient>, query: Query<(&MyPla
         position: transform.translation.into(),
         rotation: r,
     };
-    let message = bincode::serialize(&player_sync).unwrap();
+    let message = bincode::serialize(&ClientMessage::PlayerAttributes(player_sync)).unwrap();
     client.send_message(DefaultChannel::Unreliable, message);
 }
 
@@ -59,6 +58,7 @@ pub fn receive_message_system(
     mut spawn_events: EventWriter<PlayerSpawnEvent>,
     mut despawn_events: EventWriter<PlayerDespawnEvent>,
     mut lobby_sync_events: EventWriter<LobbySyncEvent>,
+    mut shoot_events: EventWriter<ShootEvent>,
 ) {
     while let Some(message) = client.receive_message(DefaultChannel::ReliableOrdered) {
         let server_message = bincode::deserialize(&message).unwrap();
@@ -72,6 +72,10 @@ pub fn receive_message_system(
                 info!("Client disconnected: {}", client_id);
                 despawn_events.send(PlayerDespawnEvent(client_id));
             }
+            mp_fps::ServerMessage::Shoot(client_id, projectile_projectile) => {
+                shoot_events.send(ShootEvent(client_id, projectile_projectile));
+            }
+
             _ => {
                 info!("Unhandled message: {:?}", server_message);
             }
@@ -85,6 +89,8 @@ pub fn receive_message_system(
             mp_fps::ServerMessage::LobbySync(map) => {
                 lobby_sync_events.send(LobbySyncEvent(map));
             }
+        
+   
             _ => {
                 info!("Unhandled message: {:?}", message);
             }
@@ -117,6 +123,7 @@ pub fn update_player_movement_system(
 pub fn apply_movement(
     mut query: Query<&mut Transform, With<MyPlayer>>,
     mut minimap_player_query: Query<&mut Transform, (With<MiniMapPlayer>, Without<MyPlayer>)>,
+    mut player_move_event: EventWriter<PlayerMoveEvent>,
     proposed_position: Res<ProposedPlayerPosition>,
     has_collision: Res<HasCollision>,
 ) {
@@ -139,6 +146,7 @@ pub fn apply_movement(
                 (player_transform.translation.z.floor() - (14. / 2.) + 0.5) * 10.,
                 0.,
             );
+            player_move_event.send(PlayerMoveEvent(player_transform.translation.into()));
         }
     }
 }
@@ -407,6 +415,27 @@ pub fn handle_lobby_sync_event_system(
             info!("Spawning player {}: {:?}", client_id, player_sync.position);
             spawn_events.send(PlayerSpawnEvent(*client_id));
         }
+    }
+}
+pub fn handle_shoot_event_system(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut shoot_events: EventReader<ShootEvent>,
+    my_clinet_id: Res<MyClientId>,
+) {
+    for event in shoot_events.read() {
+        let client_id = event.0;
+        let projectile_properties = event.1.clone();
+        if client_id == my_clinet_id.0 {
+            continue;
+        }
+        spawn_projectile_by_projectile_properties(
+            &mut commands,
+            &mut meshes,
+            &mut materials,
+            projectile_properties.clone(),
+        );
     }
 }
 
@@ -691,6 +720,7 @@ pub fn spawn_projectile(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     player_query: Query<&Transform, With<MyPlayer>>,
+    mut client: ResMut<RenetClient>,
 ) {
     let player_transform = player_query.get_single();
     match player_transform {
@@ -710,50 +740,104 @@ pub fn spawn_projectile(
     let projectile = meshes.add(Cylinder::new(0.05, 2.0));
     // let projectile_material = materials.add(Color::srgb(1.0, 0.0, 0.0)); // Rouge pour l'effet laser
     let projectile_material = materials.add(StandardMaterial {
-            base_color: Color::srgb(1.0, 0.0, 0.0), // Rouge
-            emissive: LinearRgba::rgb(1.0, 0.0, 0.0),
-            diffuse_transmission: 1.0,
-            // reflectance: .0,
-            // Rouge émissif
-            ..Default::default()
-        });
-
+        base_color: Color::srgb(1.0, 0.0, 0.0), // Rouge
+        emissive: LinearRgba::rgb(1.0, 0.0, 0.0),
+        diffuse_transmission: 1.0,
+        // reflectance: .0,
+        // Rouge émissif
+        ..Default::default()
+    });
+    let translation = player_transform.translation + direction * 0.5;
+    let rotation = player_transform.rotation * Quat::from_rotation_x(std::f32::consts::FRAC_PI_2);
     commands.spawn((
         Projectile {
-            direction,
+            direction: direction.clone(),
             speed: projectile_speed,
         },
         MaterialMeshBundle {
             mesh: projectile,
             material: projectile_material,
             transform: Transform {
-                translation: player_transform.translation + direction * 0.5,
-                rotation: player_transform.rotation * Quat::from_rotation_x(std::f32::consts::FRAC_PI_2),
+                translation: translation.clone(),
+                rotation: rotation.clone(),
                 ..Default::default()
             },
             ..Default::default()
         },
     ));
+    let projectile_properties = ProjectileProperties {
+        position: translation.into(),
+        rotation: rotation.to_array(),
+        direction: direction.into(),
+    };
+    let message = bincode::serialize(&ClientMessage::Shoot(projectile_properties)).unwrap();
+    client.send_message(DefaultChannel::ReliableOrdered, message);
 }
-
+pub fn spawn_projectile_by_projectile_properties(
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<StandardMaterial>>,
+    projectile_properties: ProjectileProperties,
+) {
+    let dir = Vec3::new(
+        projectile_properties.direction[0],
+        projectile_properties.direction[1],
+        projectile_properties.direction[2],
+    );
+    let translation = Vec3::new(
+        projectile_properties.position[0],
+        projectile_properties.position[1],
+        projectile_properties.position[2],
+    );
+    let rotation = Quat::from_array(projectile_properties.rotation);
+    let projectile = Projectile {
+        direction: dir,
+        speed: 20.,
+    };
+    let projectile_mesh = meshes.add(Cylinder::new(0.05, 2.0));
+    // let projectile_material = materials.add(Color::srgb(1.0, 0.0, 0.0)); // Rouge pour l'effet laser
+    let projectile_material = materials.add(StandardMaterial {
+        base_color: Color::srgb(1.0, 0.0, 0.0), // Rouge
+        emissive: LinearRgba::rgb(1.0, 0.0, 0.0),
+        diffuse_transmission: 1.0,
+        // reflectance: .0,
+        // Rouge émissif
+        ..Default::default()
+    });
+    commands.spawn((
+        projectile,
+        MaterialMeshBundle {
+            mesh: projectile_mesh,
+            material: projectile_material,
+            transform: Transform {
+                translation,
+                rotation,
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+    ));
+    // spawn_projectile(commands, meshes, materials, projectile);
+}
 pub fn shoot_system(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     commands: Commands,
     meshes: ResMut<Assets<Mesh>>,
     materials: ResMut<Assets<StandardMaterial>>,
     player_query: Query<&Transform, With<MyPlayer>>,
+    client: ResMut<RenetClient>,
 ) {
     if mouse_button_input.just_pressed(MouseButton::Left) {
         // Tirer un projectile
         println!("Pew!");
-        spawn_projectile(commands, meshes, materials, player_query);
+        spawn_projectile(commands, meshes, materials, player_query, client);
     }
 }
 pub fn projectile_movement_system(
     mut commands: Commands,
     time: Res<Time>,
     mut projectile_query: Query<(Entity, &mut Transform, &Projectile)>,
-){
+) {
     for (entity, mut transform, projectile) in projectile_query.iter_mut() {
         // Déplacer le projectile
         transform.translation += projectile.direction * projectile.speed * time.delta_seconds();

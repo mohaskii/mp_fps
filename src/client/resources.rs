@@ -14,3 +14,5 @@ pub struct ProposedPlayerPosition(pub Vec3);
 
 #[derive(Resource, Default)]
 pub struct HasCollision(pub bool);
+#[derive(Resource, Default)]
+pub struct ProjectileBuffer(pub Vec<mp_fps::ProjectileProperties>);

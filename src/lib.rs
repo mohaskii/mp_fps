@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 type Transform = [f32; 3];
 type Quaternion = [f32; 4];
+use bevy::prelude::Resource;
 use renet::ClientId;
 use serde::{Deserialize, Serialize};
 
@@ -14,8 +15,9 @@ pub struct PlayerAttributes {
 pub enum ClientMessage {
     PlayerMove(Transform),
     Shoot(ProjectileProperties),    
+    PlayerAttributes(PlayerAttributes),
 }
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Resource)]
 pub struct ProjectileProperties {
     pub position: Transform,
     pub rotation: Quaternion,
@@ -28,7 +30,7 @@ pub struct ProjectileProperties {
 pub enum ServerMessage {
 
     LobbySync(HashMap<ClientId, PlayerAttributes>),
-    Shoot(ProjectileProperties),
+    Shoot(ClientId, ProjectileProperties),
     PlayerJoin(ClientId),
     PlayerLeave(ClientId),
 }

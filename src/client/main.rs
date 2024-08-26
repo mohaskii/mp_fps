@@ -81,12 +81,16 @@ fn main() {
     let transport = NetcodeClientTransport::new(current_time, authentication, socket).unwrap();
 
     app.insert_resource(transport);
+    
+    let  projectile_buffer = ProjectileBuffer::default();
+    app.insert_resource(projectile_buffer);
 
     // game events
     app.add_event::<events::PlayerSpawnEvent>();
     app.add_event::<events::PlayerDespawnEvent>();
     app.add_event::<events::PlayerMoveEvent>();
     app.add_event::<events::LobbySyncEvent>();
+    app.add_event::<events::ShootEvent>();
 
     // game systems
     app.add_systems(
@@ -102,6 +106,7 @@ fn main() {
             handle_lobby_sync_event_system,
             shoot_system, // Système pour tirer
             projectile_movement_system,
+            handle_shoot_event_system,
         )
             .chain()
             .run_if(in_state(GameState::Playing)),
