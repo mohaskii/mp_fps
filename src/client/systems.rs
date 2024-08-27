@@ -1,4 +1,6 @@
-use crate::map_plugin::*;
+use std::time::Duration;
+
+use crate::{map_plugin::*, Animations};
 use bevy::color::palettes::css::{RED, WHITE};
 use bevy::color::palettes::tailwind::{self, BLUE_500};
 use bevy::input::mouse::MouseMotion;
@@ -36,10 +38,11 @@ use crate::{
 const VIEW_MODEL_RENDER_LAYER: usize = 1;
 const DEFAULT_RENDER_LAYER: usize = 0;
 
-pub fn send_message_system(mut client: ResMut<RenetClient>, query: Query<(&MyPlayer, &Transform)>) {
-    let (_, transform) = query.single();
+pub fn send_message_system(mut client: ResMut<RenetClient>, query: Query<&Transform, With<MyPlayer>>) {
+    let transform = query.single();
     let player_sync = PlayerAttributes {
         position: transform.translation.into(),
+        forward: transform.forward().to_array(),
     };
     let message = bincode::serialize(&player_sync).unwrap();
     client.send_message(DefaultChannel::Unreliable, message);
@@ -70,14 +73,16 @@ pub fn receive_message_system(
     }
 
     while let Some(message) = client.receive_message(DefaultChannel::Unreliable) {
-        let message = bincode::deserialize(&message).unwrap();
+        let message_option = bincode::deserialize(&message);
 
-        match message {
-            mp_fps::ServerMessage::LobbySync(map) => {
-                lobby_sync_events.send(LobbySyncEvent(map));
-            }
-            _ => {
-                info!("Unhandled message: {:?}", message);
+        if let Ok(message) = message_option {
+            match message {
+                mp_fps::ServerMessage::LobbySync(map) => {
+                    lobby_sync_events.send(LobbySyncEvent(map));
+                }
+                _ => {
+                    info!("Unhandled message: {:?}", message);
+                }
             }
         }
     }
@@ -133,7 +138,7 @@ pub fn spawn_lights(mut commands: Commands) {
         PointLightBundle {
             point_light: PointLight {
                 color: WHITE.into(),
-                intensity:100_000.0,
+                intensity: 100_000.0,
                 shadows_enabled: true,
                 radius: 100.0,
                 ..default()
@@ -141,7 +146,6 @@ pub fn spawn_lights(mut commands: Commands) {
             transform: Transform::from_xyz(18.5, 2.5, 15.5),
             ..default()
         },
-        
         // The light source illuminates both the world model and the view model.
         RenderLayers::from_layers(&[DEFAULT_RENDER_LAYER, VIEW_MODEL_RENDER_LAYER]),
     ));
@@ -263,10 +267,7 @@ pub fn check_collision_system(
     has_collision.0 = false;
 }
 
-pub fn setup_system(
-    mut commands: Commands,
-    ass: Res<AssetServer>,
-) {
+pub fn setup_system(mut commands: Commands, ass: Res<AssetServer>) {
     commands
         .spawn((
             MyPlayer,
@@ -314,7 +315,6 @@ pub fn setup_system(
             parent.spawn((
                 SceneBundle {
                     scene: riffle,
-                    // material: arm_material,
                     transform: Transform {
                         scale: Vec3 {
                             x: 0.15,
@@ -335,21 +335,47 @@ pub fn setup_system(
 
 pub fn handle_player_spawn_event_system(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    // mut meshes: ResMut<Assets<Mesh>>,
+    mut graphs: ResMut<Assets<AnimationGraph>>,
+    asset_server: Res<AssetServer>,
+    // mut materials: ResMut<Assets<StandardMaterial>>,
     mut spawn_events: EventReader<PlayerSpawnEvent>,
 ) {
+    let mut graph = AnimationGraph::new();
+    let animations = graph
+        .add_clips(
+            [GltfAssetLabel::Animation(0).from_asset("soldier_aiming_idle.glb")]
+                .into_iter()
+                .map(|path| asset_server.load(path)),
+            1.0,
+            graph.root,
+        )
+        .collect();
+
+    // Insert a resource with the current scene information
+    let graph = graphs.add(graph);
+    commands.insert_resource(Animations {
+        animations,
+        graph: graph.clone(),
+    });
     for event in spawn_events.read() {
         info!("Handling player spawn event: {:?}", event.0);
         let client_id = event.0;
 
+        let scene_handle = asset_server.load("soldier_aiming_idle.glb#Scene0");
+        let transform =  Transform::from_rotation(Quat::from_rotation_y(180.0));
+
         commands.spawn((
-            MaterialMeshBundle {
-                material: materials.add(StandardMaterial {
-                    base_color: Color::rgb(1.0, 0.0, 0.0),
-                    ..default()
-                }),
-                mesh: meshes.add(Cuboid::default()),
+            SceneBundle {
+                scene: scene_handle,
+                transform: Transform {
+                    scale: Vec3 {
+                        x: 0.7,
+                        y: 0.7,
+                        z: 0.7,
+                    },
+                    ..transform
+                },
                 ..default()
             },
             PlayerEntity(client_id),
@@ -377,8 +403,12 @@ pub fn handle_lobby_sync_event_system(
         let mut found = false;
         for (player_entity, mut transform) in query.iter_mut() {
             if *client_id == player_entity.0 {
-                let new_position = player_sync.position;
-                transform.translation = new_position.into();
+                let mut new_position: Vec3 = player_sync.position.into();
+                new_position.y = 0.0;
+                println!("new position: {:?}", new_position);
+                let forward = player_sync.forward;
+                transform.look_at(Vec3::from_array(forward), Vec3::Y);
+                transform.translation = new_position;
                 found = true;
             }
         }
@@ -433,4 +463,23 @@ pub fn cursor_grab(mut q_windows: Query<&mut Window, With<PrimaryWindow>>) {
 
     // also hide the cursor
     primary_window.cursor.visible = false;
+}
+
+pub fn player_animation(
+    mut commands: Commands,
+    animations: Res<Animations>,
+    mut players: Query<(Entity, &mut AnimationPlayer), Added<AnimationPlayer>>,
+) {
+    for (entity, mut player) in &mut players {
+        let mut transitions = AnimationTransitions::new();
+
+        transitions
+            .play(&mut player, animations.animations[0], Duration::ZERO)
+            .repeat();
+
+        commands
+            .entity(entity)
+            .insert(animations.graph.clone())
+            .insert(transitions);
+    }
 }

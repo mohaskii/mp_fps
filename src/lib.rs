@@ -1,16 +1,18 @@
 use std::collections::HashMap;
 
+use bevy::math::Dir3;
 use renet::ClientId;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PlayerAttributes {
-    pub position: [f32; 3]
+    pub position: [f32; 3],
+    pub forward: [f32; 3],
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum ClientMessage {
-    PlayerMove([f32; 3])
+    PlayerMove([f32; 3]),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
