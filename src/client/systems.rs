@@ -1,8 +1,11 @@
+use std::time::Duration;
+
 use crate::{
     components::{MenuElement, MiniMapPlayer, PlayButton, Projectile},
     events::{PlayerMoveEvent, ShootEvent},
     map_plugin::*,
     states::GameState,
+    Animations,
 };
 
 pub const VIEW_MODEL_RENDER_LAYER: usize = 1;
@@ -89,8 +92,7 @@ pub fn receive_message_system(
             mp_fps::ServerMessage::LobbySync(map) => {
                 lobby_sync_events.send(LobbySyncEvent(map));
             }
-        
-   
+
             _ => {
                 info!("Unhandled message: {:?}", message);
             }
@@ -344,42 +346,52 @@ pub fn setup_system(
 
 pub fn handle_player_spawn_event_system(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    // mut meshes: ResMut<Assets<Mesh>>,
+    mut graphs: ResMut<Assets<AnimationGraph>>,
+    asset_server: Res<AssetServer>,
+    // mut materials: ResMut<Assets<StandardMaterial>>,
     mut spawn_events: EventReader<PlayerSpawnEvent>,
 ) {
-    let arm = meshes.add(Cuboid::new(0.1, 0.1, 0.5));
-    let arm_material = materials.add(Color::from(tailwind::TEAL_200));
+    let mut graph = AnimationGraph::new();
+    let animations = graph
+        .add_clips(
+            [GltfAssetLabel::Animation(0).from_asset("soldier_aiming_idle.glb")]
+                .into_iter()
+                .map(|path| asset_server.load(path)),
+            1.0,
+            graph.root,
+        )
+        .collect();
+
+    // Insert a resource with the current scene information
+    let graph = graphs.add(graph);
+    commands.insert_resource(Animations {
+        animations,
+        graph: graph.clone(),
+    });
     for event in spawn_events.read() {
         info!("Handling player spawn event: {:?}", event.0);
         let client_id = event.0;
 
-        commands
-            .spawn((
-                // Ajoutez le collider ici
-                SpatialBundle {
-                    transform: Transform::from_xyz((23. / 2.) + 1.5, 2.0, (14.0 / 2.) + 1.5),
+        let scene_handle = asset_server.load("soldier_aiming_idle.glb#Scene0");
+        // let transform = Transform::from_rotation(Quat::from_rotation_y(180.0));
+
+        commands.spawn((
+            SceneBundle {
+                scene: scene_handle,
+                transform: Transform {
+                    scale: Vec3 {
+                        x: 0.7,
+                        y: 0.7,
+                        z: 0.7,
+                    },
+                    rotation: Quat::from_rotation_y(180.0),
                     ..default()
                 },
-                PlayerEntity(client_id),
-            ))
-            .with_children(|parent| {
-                // Spawn view model camera.
-
-                // Spawn the player's right arm.
-                parent.spawn((
-                    MaterialMeshBundle {
-                        mesh: arm.clone(),
-                        material: arm_material.clone(),
-                        transform: Transform::from_xyz(0.2, -0.1, -0.25),
-                        ..default()
-                    },
-                    // Ensure the arm is only rendered by the view model camera.
-                    // RenderLayers::layer(VIEW_MODEL_RENDER_LAYER),
-                    // The arm is free-floating, so shadows would look weird.
-                    NotShadowCaster,
-                ));
-            });
+                ..default()
+            },
+            PlayerEntity(client_id),
+        ));
     }
 }
 
@@ -407,6 +419,9 @@ pub fn handle_lobby_sync_event_system(
                 let new_rotation = player_sync.rotation;
                 transform.translation = new_position.into();
                 transform.rotation = Quat::from_array(new_rotation);
+                transform.rotate(Quat::from_rotation_y(160.0));
+                transform.y = 0.0;
+                
                 found = true;
             }
         }
@@ -846,5 +861,24 @@ pub fn projectile_movement_system(
         if transform.translation.length() > 100.0 {
             commands.entity(entity).despawn();
         }
+    }
+}
+
+pub fn player_animation(
+    mut commands: Commands,
+    animations: Res<Animations>,
+    mut players: Query<(Entity, &mut AnimationPlayer), Added<AnimationPlayer>>,
+) {
+    for (entity, mut player) in &mut players {
+        let mut transitions = AnimationTransitions::new();
+
+        transitions
+            .play(&mut player, animations.animations[0], Duration::ZERO)
+            .repeat();
+
+        commands
+            .entity(entity)
+            .insert(animations.graph.clone())
+            .insert(transitions);
     }
 }

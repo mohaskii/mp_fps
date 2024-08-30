@@ -107,6 +107,7 @@ fn main() {
             shoot_system, // Système pour tirer
             projectile_movement_system,
             handle_shoot_event_system,
+            player_animation
         )
             .chain()
             .run_if(in_state(GameState::Playing)),
