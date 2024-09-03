@@ -1,5 +1,5 @@
-use bevy::prelude::*;
 use bevy::ecs::component::Component;
+use bevy::prelude::*;
 use renet::ClientId;
 
 #[derive(Component)]
@@ -24,3 +24,5 @@ pub struct Projectile {
     pub direction: Vec3,
     pub speed: f32,
 }
+#[derive(Component)]
+pub struct Fetal;

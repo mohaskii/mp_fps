@@ -10,6 +10,8 @@ use bevy::{
     DefaultPlugins,
 };
 use bevy_renet::{transport::NetcodeClientPlugin, RenetClientPlugin};
+use mp_fps::{PlayerAttributes, P};
+// use mp_fps::YP;
 use renet::{
     transport::{ClientAuthentication, NetcodeClientTransport},
     ClientId, ConnectionConfig, RenetClient,
@@ -35,6 +37,7 @@ use bevy::prelude::*;
 use map_plugin::*;
 mod states;
 mod ui_plugin;
+use bevy_dev_tools::fps_overlay::{FpsOverlayConfig, FpsOverlayPlugin};
 use ui_plugin::*;
 fn main() {
     let mut app = App::new();
@@ -52,6 +55,18 @@ fn main() {
         MapPlugin,
         UiPlugin,
     ));
+    app.add_plugins(FpsOverlayPlugin{
+        
+        config:FpsOverlayConfig {
+            text_config:TextStyle {
+                font_size: 50.0,
+                color: Color::srgb(0.0, 1.0, 0.0),
+                font: default(),
+            },
+        },
+    });
+
+    app.init_resource::<PlayerAttributes>();
     // Get the server address from the command line arguments
     let server_address = std::env::args()
         .nth(1)
@@ -62,7 +77,9 @@ fn main() {
     let client = RenetClient::new(ConnectionConfig::default());
     app.insert_resource(client);
 
+    let starting_lives = Live(5);
     let client_id = rand::random::<u64>();
+    app.insert_resource(starting_lives);
     app.insert_resource(MyClientId(ClientId::from_raw(client_id)));
     app.insert_resource(PlayerEntities(HashMap::new()));
     app.insert_resource(ProposedPlayerPosition(Vec3::ZERO)); // Assuming ProposedPlayerPosition is a struct with a Vec3 field initialized to Vec3::ZERO
@@ -81,8 +98,8 @@ fn main() {
     let transport = NetcodeClientTransport::new(current_time, authentication, socket).unwrap();
 
     app.insert_resource(transport);
-    
-    let  projectile_buffer = ProjectileBuffer::default();
+
+    let projectile_buffer = ProjectileBuffer::default();
     app.insert_resource(projectile_buffer);
 
     // game events
@@ -107,7 +124,8 @@ fn main() {
             shoot_system, // Système pour tirer
             projectile_movement_system,
             handle_shoot_event_system,
-            player_animation
+            player_animation,
+            // handle_camera,
         )
             .chain()
             .run_if(in_state(GameState::Playing)),

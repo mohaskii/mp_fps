@@ -96,7 +96,8 @@ pub fn handle_events_system(
                     
                     PlayerAttributes {
                         position: [0.0, 0.0, 0.0],
-                        rotation: r 
+                        rotation: r ,
+                        pitch: 0.0
                     },
                 );
                 let message =

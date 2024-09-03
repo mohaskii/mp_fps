@@ -11,6 +11,7 @@ rand = "0.8.5"
 renet = "0.0.16"
 serde = "1.0.203"
 # bevy_rapier3d = "0.27.0"
+bevy_dev_tools = "0.14.1"
 
 [[bin]]
 name = "server"

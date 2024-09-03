@@ -1,6 +1,11 @@
 use std::collections::HashMap;
 
-use bevy::{asset::Handle, ecs::{entity::Entity, system::Resource}, math::Vec3, prelude::{AnimationGraph, AnimationNodeIndex}};
+use bevy::{
+    asset::Handle,
+    ecs::{entity::Entity, system::Resource},
+    math::Vec3,
+    prelude::{AnimationGraph, AnimationNodeIndex},
+};
 use renet::ClientId;
 
 #[derive(Resource)]
@@ -21,3 +26,7 @@ pub struct Animations {
     pub animations: Vec<AnimationNodeIndex>,
     pub graph: Handle<AnimationGraph>,
 }
+#[derive(Resource,)]
+pub struct Live(pub u32);
+
+

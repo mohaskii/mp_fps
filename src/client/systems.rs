@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{f32::consts::PI, time::Duration};
 
 use crate::{
     components::{MenuElement, MiniMapPlayer, PlayButton, Projectile},
@@ -34,7 +34,7 @@ use bevy::{
     // render::{mesh::Mesh},
     transform::components::Transform,
 };
-use mp_fps::{ClientMessage, PlayerAttributes, ProjectileProperties};
+use mp_fps::{ClientMessage, PlayerAttributes, ProjectileProperties, P};
 use renet::{DefaultChannel, RenetClient};
 
 use crate::{
@@ -44,15 +44,23 @@ use crate::{
     MyClientId,
 };
 
-pub fn send_message_system(mut client: ResMut<RenetClient>, query: Query<(&MyPlayer, &Transform)>) {
+pub fn send_message_system(
+    mut client: ResMut<RenetClient>,
+    query: Query<(&MyPlayer, &Transform)>,
+    // player_attributes: Res<PlayerAttributes>,
+) {
+    // let _ = player_attributes;
     let (_, transform) = query.single();
     let mut r = [0.0; 4];
     transform.rotation.write_to_slice(&mut r);
     let player_sync = PlayerAttributes {
         position: transform.translation.into(),
         rotation: r,
+        pitch : 0.,
+        // pitch: p.0,
     };
-    let message = bincode::serialize(&ClientMessage::PlayerAttributes(player_sync)).unwrap();
+    let message =
+        bincode::serialize(&ClientMessage::PlayerAttributes(player_sync.clone())).unwrap();
     client.send_message(DefaultChannel::Unreliable, message);
 }
 
@@ -196,15 +204,31 @@ pub fn spawn_text(mut commands: Commands) {
 
 pub fn move_player(
     mut mouse_motion: EventReader<MouseMotion>,
-    mut player: Query<&mut Transform, With<MyPlayer>>,
+    mut player: Query<&mut Transform, (With<MyPlayer>, Without<WorldModelCamera>)>,
+    // mut player_attributes: ResMut<PlayerAttributes>,
+    // mut camera_transform: Query<&mut Transform, (Without<MyPlayer>, With<WorldModelCamera>)>
 ) {
     let mut transform = player.single_mut();
+    // let mut camera_transform = camera_transform.single_mut();
     for motion in mouse_motion.read() {
+        // let mut transform_to_send = Transform::from_translation(transform.translation);
+        // let mut r = [0.0; 4];
         let yaw = -motion.delta.x * 0.003;
         let pitch = -motion.delta.y * 0.002;
+        // transform_to_send.rotate_y(yaw);
+        // transform_to_send.rotate_local_x(-1. * pitch);
+        // transform_to_send.rotate(Quat::from_rotation_y(PI));
+        // transform_to_send.rotation.write_to_slice(&mut r);
+        // player_attributes.position = transform_to_send.translation.into();
+        // player_attributes.rotation = r;
+        // player_attributes.pitch = pitch;
+        // info!(" pitch: {}", pitch);
         // Order of rotations is important, see <https://gamedev.stackexchange.com/a/136175/103059>
         transform.rotate_y(yaw);
         transform.rotate_local_x(pitch);
+        // camera_transform.rotate_y(yaw);
+        // camera_transform.rotate_local_x(    pitch);
+        // p.0 = pitch;
     }
 }
 
@@ -238,7 +262,7 @@ pub fn player_position_control(
         }
 
         proposed_position.0 = player_transform.translation + movement * speed * delta;
-        proposed_position.0.y = 1.0;
+        proposed_position.0.y = 0.9 / 2.;
     }
 }
 
@@ -282,22 +306,39 @@ pub fn setup_system(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    ass: Res<AssetServer>
 ) {
     let arm = meshes.add(Cuboid::new(0.1, 0.1, 0.5));
+    let player_body = meshes.add(Cuboid::new(0.37, 1.4, 0.37));
     let arm_material = materials.add(Color::from(tailwind::TEAL_200));
+
+    // commands.spawn((
+    //     WorldModelCamera,
+    //     Camera3dBundle {
+    //         projection: PerspectiveProjection {
+    //             fov: 70.0_f32.to_radians(),
+    //             ..default()
+    //         }
+    //         .into(),
+    //         ..default()
+    //     },
+    //     RenderLayers::from_layers(&[VIEW_MODEL_RENDER_LAYER, DEFAULT_RENDER_LAYER]),
+    // ));
 
     commands
         .spawn((
             MyPlayer,
             Collider {
                 size: Vec3::new(1.0, 1.0, 1.0),
-            }, // Ajoutez le collider ici
+            }, // Add collider here
             SpatialBundle {
-                transform: Transform::from_xyz((23. / 2.) + 1.5, 2.0, (14.0 / 2.) + 1.5),
+                transform: Transform::from_xyz((23. / 2.) + 1.5, 0.9 / 2., (14.0 / 2.) + 1.5),
                 ..default()
             },
         ))
         .with_children(|parent| {
+            //this is the camera of the global view
+
             parent.spawn((
                 WorldModelCamera,
                 Camera3dBundle {
@@ -306,34 +347,67 @@ pub fn setup_system(
                         ..default()
                     }
                     .into(),
+                    transform: Transform ::from_xyz(-0.12,0.5 ,0. ),
                     ..default()
                 },
-            ));
-            // Spawn view model camera.
-            parent.spawn((
-                Camera3dBundle {
-                    camera: Camera {
-                        // Bump the order to render on top of the world model.
-                        order: 1,
-                        ..default()
-                    },
-                    projection: PerspectiveProjection {
-                        fov: 70.0_f32.to_radians(),
-                        ..default()
-                    }
-                    .into(),
-                    ..default()
-                },
-                // Only render objects belonging to the view model.
-                RenderLayers::layer(VIEW_MODEL_RENDER_LAYER),
+                RenderLayers::from_layers(&[VIEW_MODEL_RENDER_LAYER, DEFAULT_RENDER_LAYER]),
             ));
 
+            // Spawn view model camera.
+            // parent.spawn((
+            //     Camera3dBundle {
+            //         camera: Camera {
+            //             // Bump the order to render on top of the world model.
+            //             order: 1,
+            //             ..default()
+            //         },
+            //         projection: PerspectiveProjection {
+            //             fov: 70.0_f32.to_radians(),
+            //             ..default()
+            //         }
+            //         .into(),
+            //         ..default()
+            //     },
+            //     // Only render objects belonging to the view model.
+            //     RenderLayers::layer(VIEW_MODEL_RENDER_LAYER),
+            // ));
+
             // Spawn the player's right arm.
+            // parent.spawn((
+            //     MaterialMeshBundle {
+            //         mesh: arm,
+            //         material: arm_material.clone(),
+            //         transform: Transform::from_xyz(0.08, 0.5, -0.25),
+            //         ..default()
+            //     },
+            //     // Ensure the arm is only rendered by the view model camera.
+            //     RenderLayers::layer(VIEW_MODEL_RENDER_LAYER),
+            //     // The arm is free-floating, so shadows would look weird.
+            //     NotShadowCaster,
+            // ));
+            let riffle = ass.load("m4_carbine_rifle.glb#Scene0");
+            parent.spawn((
+                SceneBundle               {
+                    scene: riffle,
+                    transform: Transform {
+                        scale: Vec3 {
+                            x: 0.15,
+                            y: 0.15,
+                            z: 0.15,
+                        },  
+                        ..Transform::from_xyz(0.08, 0.5, -0.2)
+                    },
+                    ..default()
+                },
+                // Ensure the arm is only rendered by the view model camera.
+                RenderLayers::layer(VIEW_MODEL_RENDER_LAYER),
+                // The arm is free-floating, so shadows would look weird.
+                NotShadowCaster,
+            ));
             parent.spawn((
                 MaterialMeshBundle {
-                    mesh: arm,
+                    mesh: player_body,
                     material: arm_material,
-                    transform: Transform::from_xyz(0.2, -0.1, -0.25),
                     ..default()
                 },
                 // Ensure the arm is only rendered by the view model camera.
@@ -342,6 +416,17 @@ pub fn setup_system(
                 NotShadowCaster,
             ));
         });
+}
+pub fn handle_camera(
+    player_transform: Query<&Transform, (With<MyPlayer>, Without<WorldModelCamera>)>,
+    mut camera_transform: Query<&mut Transform, (Without<MyPlayer>, With<WorldModelCamera>)>,
+) {
+    if let Ok(player_transform) = player_transform.get_single() {
+        if let Ok(mut camera_transform) = camera_transform.get_single_mut() {
+            let backup_distance = camera_transform.back().as_vec3() * 1.5;
+            camera_transform.translation = player_transform.translation + backup_distance;
+        }
+    }
 }
 
 pub fn handle_player_spawn_event_system(
@@ -417,11 +502,19 @@ pub fn handle_lobby_sync_event_system(
             if *client_id == player_entity.0 {
                 let new_position = player_sync.position;
                 let new_rotation = player_sync.rotation;
+                // let x_rotation = Quat::from_rotation_x(-2. * player_sync.pitch);
                 transform.translation = new_position.into();
+
                 transform.rotation = Quat::from_array(new_rotation);
-                transform.rotate(Quat::from_rotation_y(160.0));
-                transform.y = 0.0;
-                
+                transform.rotate_y(PI);
+
+                // transform.rotation *= x_rotation;
+                // transform.
+                // transform.rotate(Quat::from_rotation_x(-player_sync.pitch));
+                // transform.rotate_ = -transform.rotate_local;
+                // transform.rotate_local_x(player_sync.pitch);
+                transform.translation.y = 0.;   
+
                 found = true;
             }
         }
@@ -749,7 +842,6 @@ pub fn spawn_projectile(
     let projectile_speed = 20.0;
 
     // La direction du projectile sera la direction du bras du joueur
-    let direction = player_transform.forward().as_vec3();
 
     // Créer un projectile avec une forme de cylindre pour représenter le laser
     let projectile = meshes.add(Cylinder::new(0.05, 2.0));
@@ -762,8 +854,13 @@ pub fn spawn_projectile(
         // Rouge émissif
         ..Default::default()
     });
-    let translation = player_transform.translation + direction * 0.5;
-    let rotation = player_transform.rotation * Quat::from_rotation_x(std::f32::consts::FRAC_PI_2);
+    let mut kiki = player_transform.clone();
+    kiki.translation.x += 0.08;
+    kiki.translation.y += 0.5;
+    kiki.translation.z += -0.25;
+    let direction = kiki.forward().as_vec3();
+    let translation = kiki.translation + direction * 0.5;
+    let rotation = kiki.rotation * Quat::from_rotation_x(std::f32::consts::FRAC_PI_2);
     commands.spawn((
         Projectile {
             direction: direction.clone(),

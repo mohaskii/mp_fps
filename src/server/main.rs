@@ -26,7 +26,7 @@ fn main() {
     // base plugins
     app.add_plugins(MinimalPlugins);
     app.add_plugins(LogPlugin::default());
-    app.add_plugins(RenetServerPlugin);
+    app.add_plugins(RenetServerPlugin); 
 
     // renet server
     let server = RenetServer::new(ConnectionConfig::default());
@@ -50,7 +50,7 @@ fn main() {
     };
     let transport = NetcodeServerTransport::new(server_config, socket).unwrap();
     app.insert_resource(transport);
-    app.add_event::<ShootEvent>();
+    app.add_event::<ShootEvent>();  
     // game systems
     app.insert_resource(PlayerLobby(HashMap::default()));
 
