@@ -1,11 +1,11 @@
 use std::{f32::consts::PI, time::Duration};
 
 use crate::{
-    components::{MenuElement, MiniMapPlayer, PlayButton, Projectile},
+    components::{MenuElement, MiniMapPlayer, PlayButton, PlayerBody, Projectile, WaitingText},
     events::{PlayerMoveEvent, ShootEvent},
     map_plugin::*,
     states::GameState,
-    Animations,
+    Animations, ClientEntity, GameAlreadyStarted, Live, WaitingEntity,
 };
 
 pub const VIEW_MODEL_RENDER_LAYER: usize = 1;
@@ -56,7 +56,7 @@ pub fn send_message_system(
     let player_sync = PlayerAttributes {
         position: transform.translation.into(),
         rotation: r,
-        pitch : 0.,
+        pitch: 0.,
         // pitch: p.0,
     };
     let message =
@@ -70,6 +70,10 @@ pub fn receive_message_system(
     mut despawn_events: EventWriter<PlayerDespawnEvent>,
     mut lobby_sync_events: EventWriter<LobbySyncEvent>,
     mut shoot_events: EventWriter<ShootEvent>,
+    map_client_entity: Res<ClientEntity>,
+    mut next_state: ResMut<NextState<GameState>>,
+    mut commands: Commands,
+    mut game_already_started: ResMut<GameAlreadyStarted>,
 ) {
     while let Some(message) = client.receive_message(DefaultChannel::ReliableOrdered) {
         let server_message = bincode::deserialize(&message).unwrap();
@@ -85,6 +89,24 @@ pub fn receive_message_system(
             }
             mp_fps::ServerMessage::Shoot(client_id, projectile_projectile) => {
                 shoot_events.send(ShootEvent(client_id, projectile_projectile));
+            }
+            mp_fps::ServerMessage::DaNiggaDie(client_id) => {
+                info!("Player {} died!", client_id);
+                let player_entity = map_client_entity.0.get(&client_id).unwrap();
+                commands.entity(player_entity.clone()).despawn();
+            }
+            mp_fps::ServerMessage::YouWon => {
+                info!("You won!");
+                next_state.set(GameState::IWon);
+            }
+            mp_fps::ServerMessage::GameStarted => {
+                info!("Game started!");
+                if game_already_started.0 {
+                    return; // Don't send message again if game has already started
+                }
+
+                game_already_started.0 = true;
+                next_state.set(GameState::GameStarted)
             }
 
             _ => {
@@ -176,30 +198,34 @@ pub fn spawn_lights(mut commands: Commands) {
     ));
 }
 
-pub fn spawn_text(mut commands: Commands) {
-    commands
-        .spawn(NodeBundle {
-            style: Style {
-                position_type: PositionType::Absolute,
-                bottom: Val::Px(12.0),
-                left: Val::Px(12.0),
+pub fn spawn_text(mut commands: Commands, mut waiting_entity: ResMut<WaitingEntity>) {
+    let We = commands
+        .spawn((
+            WaitingText,
+            NodeBundle {
+                style: Style {
+                    position_type: PositionType::Absolute,
+                    bottom: Val::Px(12.0),
+                    left: Val::Px(12.0),
+                    ..default()
+                },
                 ..default()
             },
-            ..default()
-        })
+        ))
         .with_children(|parent| {
             parent.spawn(TextBundle::from_section(
-                concat!(
-                    "Move the camera with your mouse.\n",
-                    "Press arrow up to decrease the FOV of the world model.\n",
-                    "Press arrow down to increase the FOV of the world model."
-                ),
+                concat!("Waiting for player.\n",),
                 TextStyle {
                     font_size: 25.0,
                     ..default()
                 },
             ));
-        });
+        })
+        .id();
+    println!("ldsdkskdks");
+    waiting_entity.0 = Some(We);
+    println!("this is the entity : {}", We);
+    // commands.entity(We).despawn()
 }
 
 pub fn move_player(
@@ -306,7 +332,7 @@ pub fn setup_system(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    ass: Res<AssetServer>
+    ass: Res<AssetServer>,
 ) {
     let arm = meshes.add(Cuboid::new(0.1, 0.1, 0.5));
     let player_body = meshes.add(Cuboid::new(0.37, 1.4, 0.37));
@@ -347,7 +373,7 @@ pub fn setup_system(
                         ..default()
                     }
                     .into(),
-                    transform: Transform ::from_xyz(-0.12,0.5 ,0. ),
+                    transform: Transform::from_xyz(-0.12, 0.5, 0.),
                     ..default()
                 },
                 RenderLayers::from_layers(&[VIEW_MODEL_RENDER_LAYER, DEFAULT_RENDER_LAYER]),
@@ -387,14 +413,14 @@ pub fn setup_system(
             // ));
             let riffle = ass.load("m4_carbine_rifle.glb#Scene0");
             parent.spawn((
-                SceneBundle               {
+                SceneBundle {
                     scene: riffle,
                     transform: Transform {
                         scale: Vec3 {
                             x: 0.15,
                             y: 0.15,
                             z: 0.15,
-                        },  
+                        },
                         ..Transform::from_xyz(0.08, 0.5, -0.2)
                     },
                     ..default()
@@ -405,6 +431,7 @@ pub fn setup_system(
                 NotShadowCaster,
             ));
             parent.spawn((
+                PlayerBody,
                 MaterialMeshBundle {
                     mesh: player_body,
                     material: arm_material,
@@ -412,10 +439,66 @@ pub fn setup_system(
                 },
                 // Ensure the arm is only rendered by the view model camera.
                 RenderLayers::layer(VIEW_MODEL_RENDER_LAYER),
+                Collider {
+                    size: Vec3::new(0.37, 1.4, 0.37),
+                },
                 // The arm is free-floating, so shadows would look weird.
                 NotShadowCaster,
             ));
         });
+}
+pub fn collision_detection_system(
+    mut commands: Commands,
+    player_query: Query<(&Transform, &Collider), (With<MyPlayer>, Without<Projectile>)>,
+    projectile_query: Query<(Entity, &mut Transform, &Projectile), With<Projectile>>,
+    mut live: ResMut<Live>,
+    mut next_state: ResMut<NextState<GameState>>,
+) {
+    let (player_transform, player_collider) = player_query.single();
+    let player_position = player_transform.translation;
+
+    for (projectile_entity, projectile_transform, projectile) in projectile_query.iter() {
+        let projectile_position = projectile_transform.translation;
+        let projectile_direction = projectile.direction;
+        let projectile_length = 2.0; // Longueur du projectile (définie dans spawn_projectile)
+
+        // Calculer la distance entre le joueur et le point le plus proche du projectile
+        let closest_point = closest_point_on_line(
+            player_position,
+            projectile_position,
+            projectile_position + projectile_direction * projectile_length,
+        );
+        let distance = (closest_point - player_position).length();
+
+        // Vérifier si la distance est inférieure au rayon du joueur plus la moitié de la longueur du projectile
+        if distance
+            <= (player_collider
+                .size
+                .x
+                .max(player_collider.size.y)
+                .max(player_collider.size.z)
+                + projectile_length / 2.0)
+        {
+            // Collision détectée !
+            println!("Collision détectée !");
+
+            live.0 -= 1; // On diminue la vie du joueur
+            if live.0 <= 0 {
+                next_state.set(GameState::Game0ver);
+            }
+
+            // Supprimez le projectile
+            commands.entity(projectile_entity).despawn();
+        }
+    }
+}
+
+// Fonction pour trouver le point le plus proche sur une ligne
+fn closest_point_on_line(point: Vec3, line_start: Vec3, line_end: Vec3) -> Vec3 {
+    let line_direction = (line_end - line_start).normalize();
+    let projection = (point - line_start).dot(line_direction);
+    let closest_point = line_start + projection * line_direction;
+    closest_point
 }
 pub fn handle_camera(
     player_transform: Query<&Transform, (With<MyPlayer>, Without<WorldModelCamera>)>,
@@ -436,6 +519,9 @@ pub fn handle_player_spawn_event_system(
     asset_server: Res<AssetServer>,
     // mut materials: ResMut<Assets<StandardMaterial>>,
     mut spawn_events: EventReader<PlayerSpawnEvent>,
+    mut map_client_entities: ResMut<ClientEntity>,
+    // mut waiting_entity: ResMut<WaitingEntity>,
+     waiting_text_entity_query: Query<Entity , With<WaitingText>>
 ) {
     let mut graph = AnimationGraph::new();
     let animations = graph
@@ -461,22 +547,32 @@ pub fn handle_player_spawn_event_system(
         let scene_handle = asset_server.load("soldier_aiming_idle.glb#Scene0");
         // let transform = Transform::from_rotation(Quat::from_rotation_y(180.0));
 
-        commands.spawn((
-            SceneBundle {
-                scene: scene_handle,
-                transform: Transform {
-                    scale: Vec3 {
-                        x: 0.7,
-                        y: 0.7,
-                        z: 0.7,
+        let entity = commands
+            .spawn((
+                SceneBundle {
+                    scene: scene_handle,
+                    transform: Transform {
+                        scale: Vec3 {
+                            x: 0.7,
+                            y: 0.7,
+                            z: 0.7,
+                        },
+                        rotation: Quat::from_rotation_y(180.0),
+                        ..default()
                     },
-                    rotation: Quat::from_rotation_y(180.0),
                     ..default()
                 },
-                ..default()
-            },
-            PlayerEntity(client_id),
-        ));
+                PlayerEntity(client_id),
+            ))
+            .id();
+        map_client_entities.0.insert(client_id, entity);
+    }
+    if let Ok(entity) = waiting_text_entity_query.get_single() {
+        commands.entity(entity).despawn_recursive();
+      
+
+        println!("got something : {}", entity);
+        // waiting_entity.0 = None;
     }
 }
 
@@ -513,7 +609,7 @@ pub fn handle_lobby_sync_event_system(
                 // transform.rotate(Quat::from_rotation_x(-player_sync.pitch));
                 // transform.rotate_ = -transform.rotate_local;
                 // transform.rotate_local_x(player_sync.pitch);
-                transform.translation.y = 0.;   
+                transform.translation.y = 0.;
 
                 found = true;
             }
@@ -596,17 +692,23 @@ pub fn despawn_menu(mut commands: Commands, menu_elements: Query<Entity, With<Me
         commands.entity(entity).despawn_recursive();
     }
 }
+
 pub fn button_system(
     mut next_state: ResMut<NextState<GameState>>,
     mut interaction_query: Query<
         (&Interaction, &mut BackgroundColor),
         (Changed<Interaction>, With<PlayButton>),
     >,
+    mut client: ResMut<RenetClient>,
 ) {
     for (interaction, mut color) in &mut interaction_query {
         match *interaction {
             Interaction::Pressed => {
                 *color = Color::srgb(0.35, 0.75, 0.35).into();
+                let message = bincode::serialize(&ClientMessage::PlayerStartTheGame).unwrap();
+
+                client.send_message(DefaultChannel::ReliableOrdered, message);
+
                 next_state.set(GameState::Playing);
             }
             Interaction::Hovered => {
@@ -669,6 +771,45 @@ pub fn spawn_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ));
                 });
         });
+}
+
+pub fn spawn_game_over_image(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let game_over_image: Handle<Image> = asset_server.load("game_over.png");
+    commands.spawn((
+        ImageBundle {
+            style: Style {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                position_type: PositionType::Absolute,
+                margin: UiRect::all(Val::Auto),
+                ..default()
+            },
+            image: UiImage::new(game_over_image),
+            ..default()
+        },
+        // GameOverElement,
+    ));
+}
+pub fn spawn_i_won_image(mut commands: Commands, ass: Res<AssetServer>) {
+    let i_won_image: Handle<Image> = ass.load("congrat.png");
+    commands.spawn((
+        ImageBundle {
+            style: Style {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                position_type: PositionType::Absolute,
+                margin: UiRect::all(Val::Auto),
+                ..default()
+            },
+            image: UiImage::new(i_won_image),
+            ..default()
+        },
+        // IWonElement,
+    ));
 }
 pub fn spawn_world_model(
     mut commands: Commands,
@@ -960,6 +1101,68 @@ pub fn projectile_movement_system(
         }
     }
 }
+fn check_collision_for_projectile(cube_pos: Vec3, cube_size: Vec3, cylinder_pos: Vec3) -> bool {
+    let cylinder_radius = 0.05;
+    let cylinder_height = 2.0;
+    // Vérification de la collision sur l'axe Y (hauteur)
+    let y_collision = (cube_pos.y - cube_size.y / 2.0 <= cylinder_pos.y + cylinder_height / 2.0)
+        && (cube_pos.y + cube_size.y / 2.0 >= cylinder_pos.y - cylinder_height / 2.0);
+
+    if !y_collision {
+        return false;
+    }
+
+    // Vérification de la collision sur le plan XZ
+    let dx = (cube_pos.x - cylinder_pos.x).abs();
+    let dz = (cube_pos.z - cylinder_pos.z).abs();
+
+    if dx > (cube_size.x / 2.0 + cylinder_radius) || dz > (cube_size.z / 2.0 + cylinder_radius) {
+        return false;
+    }
+
+    if dx <= cube_size.x / 2.0 || dz <= cube_size.z / 2.0 {
+        return true;
+    }
+
+    let corner_distance_sq = (dx - cube_size.x / 2.0).powi(2) + (dz - cube_size.z / 2.0).powi(2);
+
+    corner_distance_sq <= cylinder_radius.powi(2)
+}
+
+pub fn collision_detection_system_for_cube_and_projectile(
+    mut commands: Commands,
+    player_query: Query<(Entity, &mut Transform, &MyPlayer), Without<Projectile>>,
+    projectile_query: Query<(Entity, &Transform, &Projectile), Without<PlayerBody>>,
+    mut live: ResMut<Live>,
+    mut next_state: ResMut<NextState<GameState>>,
+    mut client: ResMut<RenetClient>,
+) {
+    let (player_entity, player_transform, player) = player_query.single();
+
+    for (projectile_entity, projectile_transform, projectile) in projectile_query.iter() {
+        // player_transform.translation.y = 1.4;
+        let mut player_tranform = player_transform.clone();
+        player_tranform.translation.y -= 0.5;
+        if check_collision_for_projectile(
+            player_transform.translation,
+            Vec3::new(0.3, 1.4, 0.3),
+            projectile_transform.translation,
+        ) {
+            println!("Collision détectée !");
+            live.0 -= 1; // On diminue la vie du joueur
+            if live.0 <= 0 {
+                next_state.set(GameState::Game0ver);
+                let message = bincode::serialize(&ClientMessage::ImDead).unwrap();
+                client.send_message(DefaultChannel::ReliableOrdered, message);
+            }
+            // Ici, vous pouvez ajouter la logique pour gérer la collision
+            // Par exemple, supprimer le projectile et infliger des dégâts au joueur
+            commands.entity(projectile_entity).despawn();
+
+            // Vous pouvez également ajouter un événement de collision si nécessaire
+        }
+    }
+}
 
 pub fn player_animation(
     mut commands: Commands,
@@ -978,4 +1181,9 @@ pub fn player_animation(
             .insert(animations.graph.clone())
             .insert(transitions);
     }
+}
+
+pub fn despawn_player(entity: Entity, commands: &mut Commands) {
+    //despawn_player
+    commands.entity(entity).despawn();
 }

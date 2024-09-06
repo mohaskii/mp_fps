@@ -1,10 +1,9 @@
 use bevy::prelude::*;
 #[derive(States, Debug, Clone, Eq, PartialEq, Hash, Default)]
-pub enum GameState {
+pub enum ServerState {
     #[default]
-    Menu,
-    GameStarted,    
+
+    // Waiting,    
     Playing,
-    Game0ver,
-    IWon
+    EndOfTheGame,
 }

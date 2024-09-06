@@ -5,7 +5,7 @@ use bevy::prelude::Resource;
 use renet::ClientId;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default,Resource)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default, Resource)]
 pub struct PlayerAttributes {
     pub position: Transform,
     pub rotation: Quaternion,
@@ -17,7 +17,8 @@ pub enum ClientMessage {
     PlayerMove(Transform),
     Shoot(ProjectileProperties),
     PlayerAttributes(PlayerAttributes),
-    PlayerDie
+    ImDead,
+    PlayerStartTheGame
 }
 #[derive(Serialize, Deserialize, Debug, Clone, Resource)]
 pub struct ProjectileProperties {
@@ -34,4 +35,7 @@ pub enum ServerMessage {
     Shoot(ClientId, ProjectileProperties),
     PlayerJoin(ClientId),
     PlayerLeave(ClientId),
+    DaNiggaDie(ClientId),
+    YouWon,
+    GameStarted 
 }

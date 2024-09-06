@@ -55,10 +55,9 @@ fn main() {
         MapPlugin,
         UiPlugin,
     ));
-    app.add_plugins(FpsOverlayPlugin{
-        
-        config:FpsOverlayConfig {
-            text_config:TextStyle {
+    app.add_plugins(FpsOverlayPlugin {
+        config: FpsOverlayConfig {
+            text_config: TextStyle {
                 font_size: 50.0,
                 color: Color::srgb(0.0, 1.0, 0.0),
                 font: default(),
@@ -119,16 +118,23 @@ fn main() {
             apply_movement,
             send_message_system,
             receive_message_system,
-            handle_player_spawn_event_system,
-            handle_lobby_sync_event_system,
             shoot_system, // Système pour tirer
             projectile_movement_system,
             handle_shoot_event_system,
-            player_animation,
-            // handle_camera,
+            collision_detection_system_for_cube_and_projectile, // handle_camera,
         )
             .chain()
-            .run_if(in_state(GameState::Playing)),
+            .run_if(in_state(GameState::Playing).or_else(in_state(GameState::GameStarted))),
+    );
+    app.add_systems(
+        Update,
+        (
+            handle_player_spawn_event_system,
+            handle_lobby_sync_event_system,
+            player_animation,
+        )
+            .chain()    
+            .run_if(in_state(GameState::GameStarted)),
     );
 
     app.add_systems(
@@ -141,6 +147,13 @@ fn main() {
             // cursor_grab,
         ),
     );
+    // app.add
+    let map: ClientEntity = ClientEntity(HashMap::new());
+    app.insert_resource(map);
+    app.add_systems(OnEnter(GameState::Game0ver), spawn_game_over_image);
+    app.add_systems(OnEnter(GameState::IWon), spawn_i_won_image);
+    app.init_resource::<WaitingEntity>();
+    app.init_resource::<GameAlreadyStarted>();
 
     info!(
         "Client {} started with server address {}",

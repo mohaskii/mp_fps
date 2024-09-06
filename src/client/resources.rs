@@ -26,7 +26,11 @@ pub struct Animations {
     pub animations: Vec<AnimationNodeIndex>,
     pub graph: Handle<AnimationGraph>,
 }
-#[derive(Resource,)]
-pub struct Live(pub u32);
-
-
+#[derive(Resource)]
+pub struct Live(pub i32);
+#[derive(Resource)]
+pub struct ClientEntity(pub HashMap<ClientId, Entity>);
+#[derive(Resource, Default)]
+pub struct  WaitingEntity (pub Option<Entity>,);
+#[derive(Resource, Default)]
+pub struct  GameAlreadyStarted(pub bool);

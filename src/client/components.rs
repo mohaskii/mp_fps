@@ -25,4 +25,6 @@ pub struct Projectile {
     pub speed: f32,
 }
 #[derive(Component)]
-pub struct Fetal;
+pub struct  PlayerBody ;
+#[derive(Component)]
+pub struct WaitingText ;
