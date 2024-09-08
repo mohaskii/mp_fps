@@ -203,7 +203,7 @@ pub fn spawn_lights(mut commands: Commands) {
 }
 
 pub fn spawn_text(mut commands: Commands, mut waiting_entity: ResMut<WaitingEntity>) {
-    let We = commands
+    let we = commands
         .spawn((
             WaitingText,
             NodeBundle {
@@ -227,8 +227,8 @@ pub fn spawn_text(mut commands: Commands, mut waiting_entity: ResMut<WaitingEnti
         })
         .id();
     println!("ldsdkskdks");
-    waiting_entity.0 = Some(We);
-    println!("this is the entity : {}", We);
+    waiting_entity.0 = Some(we);
+    println!("this is the entity : {}", we);
     // commands.entity(We).despawn()
 }
 
@@ -428,59 +428,9 @@ pub fn setup_system(
         NotShadowCaster,
     ));
 }
-pub fn collision_detection_system(
-    mut commands: Commands,
-    player_query: Query<(&Transform, &Collide), (With<MyPlayer>, Without<Projectile>)>,
-    projectile_query: Query<(Entity, &mut Transform, &Projectile), With<Projectile>>,
-    mut live: ResMut<Live>,
-    mut next_state: ResMut<NextState<GameState>>,
-) {
-    let (player_transform, player_collider) = player_query.single();
-    let player_position = player_transform.translation;
-
-    for (projectile_entity, projectile_transform, projectile) in projectile_query.iter() {
-        let projectile_position = projectile_transform.translation;
-        let projectile_direction = projectile.direction;
-        let projectile_length = 2.0; // Longueur du projectile (définie dans spawn_projectile)
-
-        // Calculer la distance entre le joueur et le point le plus proche du projectile
-        let closest_point = closest_point_on_line(
-            player_position,
-            projectile_position,
-            projectile_position + projectile_direction * projectile_length,
-        );
-        let distance = (closest_point - player_position).length();
-
-        // Vérifier si la distance est inférieure au rayon du joueur plus la moitié de la longueur du projectile
-        if distance
-            <= (player_collider
-                .size
-                .x
-                .max(player_collider.size.y)
-                .max(player_collider.size.z)
-                + projectile_length / 2.0)
-        {
-            // Collision détectée !
-            println!("Collision détectée !");
-
-            live.0 -= 1; // On diminue la vie du joueur
-            if live.0 <= 0 {
-                next_state.set(GameState::Game0ver);
-            }
-
-            // Supprimez le projectile
-            commands.entity(projectile_entity).despawn();
-        }
-    }
-}
 
 // Fonction pour trouver le point le plus proche sur une ligne
-fn closest_point_on_line(point: Vec3, line_start: Vec3, line_end: Vec3) -> Vec3 {
-    let line_direction = (line_end - line_start).normalize();
-    let projection = (point - line_start).dot(line_direction);
-    let closest_point = line_start + projection * line_direction;
-    closest_point
-}
+
 pub fn handle_camera(
     player_transform: Query<&Transform, (With<MyPlayer>, Without<WorldModelCamera>)>,
     mut camera_transform: Query<&mut Transform, (Without<MyPlayer>, With<WorldModelCamera>)>,
@@ -1063,6 +1013,9 @@ pub fn detect_collision(
     mut collision_events: EventReader<CollisionEvent>,
      player_query: Query<Entity, With<PlayerBody>>,
     projectile_query: Query<(Entity, &Projectile)>,
+    mut live: ResMut<Live>,
+    mut next_state: ResMut<NextState<GameState>>,
+    mut client: ResMut<RenetClient>,
 ) {
     for collision_event in collision_events.read() {
         match collision_event {
@@ -1076,12 +1029,16 @@ pub fn detect_collision(
                     } else {
                         continue;
                     };
-
                     // If the player is involved in the collision
                     if *entity1 == player_entity || *entity2 == player_entity {
                         // Handle collision, e.g., remove the projectile and decrease player's health
                         println!("Player hit by a projectile!");
-
+                        live.0 -= 1; // On diminue la vie du joueur
+                        if live.0 <= 0 {
+                            next_state.set(GameState::Game0ver);
+                            let message = bincode::serialize(&ClientMessage::ImDead).unwrap();
+                            client.send_message(DefaultChannel::ReliableOrdered, message);
+                        }
                         // Remove the projectile entity
                         commands.entity(projectile_entity).despawn();
                     }

@@ -1,3 +1,4 @@
+#![allow(warnings)]
 use std::{
     collections::HashMap,
     net::{SocketAddrV4, UdpSocket},
@@ -7,7 +8,7 @@ use bevy_rapier3d::prelude::*;
 
 use bevy::{
     app::{App, Startup, Update},
-    log::info,
+    log::{info, LogPlugin},
     DefaultPlugins,
 };
 use bevy_renet::{transport::NetcodeClientPlugin, RenetClientPlugin};
@@ -52,7 +53,11 @@ fn main() {
     app.add_plugins((
         RenetClientPlugin,
         NetcodeClientPlugin,
-        DefaultPlugins,
+        DefaultPlugins.set(LogPlugin {
+            filter: "off".into(),
+            level: bevy::log::Level::DEBUG,
+            ..Default::default()
+        }),
         MapPlugin,
         UiPlugin,
         RapierPhysicsPlugin::<NoUserData>::default(),
