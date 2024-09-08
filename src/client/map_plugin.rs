@@ -7,7 +7,7 @@ pub struct MapPlugin;
 pub struct Wall;
 
 #[derive(Component, Clone)]
-pub struct Collider {
+pub struct Collide   {
     pub size: Vec3,
 }
 impl Plugin for MapPlugin {

@@ -7,6 +7,7 @@ use crate::{
     states::GameState,
     Animations, ClientEntity, GameAlreadyStarted, Live, WaitingEntity,
 };
+use bevy_rapier3d::prelude::*;
 
 pub const VIEW_MODEL_RENDER_LAYER: usize = 1;
 const DEFAULT_RENDER_LAYER: usize = 0;
@@ -153,6 +154,7 @@ pub fn update_player_movement_system(
 }
 
 pub fn apply_movement(
+    mut player_body_query: Query<&mut Transform, (With<PlayerBody>, Without<MyPlayer>, Without<MiniMapPlayer>)>,
     mut query: Query<&mut Transform, With<MyPlayer>>,
     mut minimap_player_query: Query<&mut Transform, (With<MiniMapPlayer>, Without<MyPlayer>)>,
     mut player_move_event: EventWriter<PlayerMoveEvent>,
@@ -160,6 +162,7 @@ pub fn apply_movement(
     has_collision: Res<HasCollision>,
 ) {
     let mut minimap_player_transform = minimap_player_query.get_single_mut().unwrap();
+    let mut body_player_transform = player_body_query.get_single_mut().unwrap();
     if let Ok(mut player_transform) = query.get_single_mut() {
         if has_collision.0 {
             // Calculer la direction de la collision
@@ -173,6 +176,7 @@ pub fn apply_movement(
         } else {
             // Appliquer le mouvement proposé s'il n'y a pas de collision
             player_transform.translation = proposed_position.0;
+            body_player_transform.translation = proposed_position.0;
             minimap_player_transform.translation = Vec3::new(
                 (player_transform.translation.x.floor() - (23. / 2.) + 0.5) * 10.,
                 (player_transform.translation.z.floor() - (14. / 2.) + 0.5) * 10.,
@@ -306,8 +310,8 @@ fn check_collision(
 
 pub fn check_collision_system(
     mut query: ParamSet<(
-        Query<&Collider, With<MyPlayer>>,
-        Query<(&Transform, &Collider), With<Wall>>,
+        Query<&Collide, With<MyPlayer>>,
+        Query<(&Transform, &Collide), With<Wall>>,
     )>,
     mut has_collision: ResMut<HasCollision>,
     proposed_position: Res<ProposedPlayerPosition>,
@@ -335,7 +339,7 @@ pub fn setup_system(
     ass: Res<AssetServer>,
 ) {
     let arm = meshes.add(Cuboid::new(0.1, 0.1, 0.5));
-    let player_body = meshes.add(Cuboid::new(0.37, 1.4, 0.37));
+   
     let arm_material = materials.add(Color::from(tailwind::TEAL_200));
 
     // commands.spawn((
@@ -354,7 +358,7 @@ pub fn setup_system(
     commands
         .spawn((
             MyPlayer,
-            Collider {
+            Collide {
                 size: Vec3::new(1.0, 1.0, 1.0),
             }, // Add collider here
             SpatialBundle {
@@ -365,52 +369,21 @@ pub fn setup_system(
         .with_children(|parent| {
             //this is the camera of the global view
 
-            parent.spawn((
-                WorldModelCamera,
-                Camera3dBundle {
-                    projection: PerspectiveProjection {
-                        fov: 90.0_f32.to_radians(),
+                parent.spawn((
+                    WorldModelCamera,
+                    Camera3dBundle {
+                        projection: PerspectiveProjection {
+                            fov: 90.0_f32.to_radians(),
+                            ..default()
+                        }
+                        .into(),
+                        transform: Transform::from_xyz(-0.12, 0.5, 0.),
                         ..default()
-                    }
-                    .into(),
-                    transform: Transform::from_xyz(-0.12, 0.5, 0.),
-                    ..default()
-                },
-                RenderLayers::from_layers(&[VIEW_MODEL_RENDER_LAYER, DEFAULT_RENDER_LAYER]),
-            ));
+                    },
+                    RenderLayers::from_layers(&[VIEW_MODEL_RENDER_LAYER, DEFAULT_RENDER_LAYER]),
+                ));
 
-            // Spawn view model camera.
-            // parent.spawn((
-            //     Camera3dBundle {
-            //         camera: Camera {
-            //             // Bump the order to render on top of the world model.
-            //             order: 1,
-            //             ..default()
-            //         },
-            //         projection: PerspectiveProjection {
-            //             fov: 70.0_f32.to_radians(),
-            //             ..default()
-            //         }
-            //         .into(),
-            //         ..default()
-            //     },
-            //     // Only render objects belonging to the view model.
-            //     RenderLayers::layer(VIEW_MODEL_RENDER_LAYER),
-            // ));
-
-            // Spawn the player's right arm.
-            // parent.spawn((
-            //     MaterialMeshBundle {
-            //         mesh: arm,
-            //         material: arm_material.clone(),
-            //         transform: Transform::from_xyz(0.08, 0.5, -0.25),
-            //         ..default()
-            //     },
-            //     // Ensure the arm is only rendered by the view model camera.
-            //     RenderLayers::layer(VIEW_MODEL_RENDER_LAYER),
-            //     // The arm is free-floating, so shadows would look weird.
-            //     NotShadowCaster,
-            // ));
+        
             let riffle = ass.load("m4_carbine_rifle.glb#Scene0");
             parent.spawn((
                 SceneBundle {
@@ -430,26 +403,34 @@ pub fn setup_system(
                 // The arm is free-floating, so shadows would look weird.
                 NotShadowCaster,
             ));
-            parent.spawn((
-                PlayerBody,
-                MaterialMeshBundle {
-                    mesh: player_body,
-                    material: arm_material,
-                    ..default()
-                },
-                // Ensure the arm is only rendered by the view model camera.
-                RenderLayers::layer(VIEW_MODEL_RENDER_LAYER),
-                Collider {
-                    size: Vec3::new(0.37, 1.4, 0.37),
-                },
-                // The arm is free-floating, so shadows would look weird.
-                NotShadowCaster,
-            ));
+            // parent.spawn();
         });
+    let player_body = meshes.add(Cuboid::new(0.37, 1.4, 0.37));
+    commands.spawn((
+        PlayerBody,
+        Collider::cuboid(0.2, 1.4 / 2.0, 0.2),
+        RigidBody::KinematicPositionBased,
+        ActiveCollisionTypes::default(),
+        ActiveEvents::COLLISION_EVENTS,
+        GravityScale(0.),
+        MaterialMeshBundle {
+            mesh: player_body,
+            material: arm_material,
+            transform: Transform::from_xyz((23. / 2.) + 1.5, 1.4 / 2., (14.0 / 2.) + 1.5),
+            ..default()
+        },
+        // Ensure the arm is only rendered by the view model camera.
+        RenderLayers::layer(VIEW_MODEL_RENDER_LAYER),
+        Collide {
+            size: Vec3::new(0.37, 1.4, 0.37),
+        },
+        // The arm is free-floating, so shadows would look weird.
+        NotShadowCaster,
+    ));
 }
 pub fn collision_detection_system(
     mut commands: Commands,
-    player_query: Query<(&Transform, &Collider), (With<MyPlayer>, Without<Projectile>)>,
+    player_query: Query<(&Transform, &Collide), (With<MyPlayer>, Without<Projectile>)>,
     projectile_query: Query<(Entity, &mut Transform, &Projectile), With<Projectile>>,
     mut live: ResMut<Live>,
     mut next_state: ResMut<NextState<GameState>>,
@@ -521,7 +502,7 @@ pub fn handle_player_spawn_event_system(
     mut spawn_events: EventReader<PlayerSpawnEvent>,
     mut map_client_entities: ResMut<ClientEntity>,
     // mut waiting_entity: ResMut<WaitingEntity>,
-     waiting_text_entity_query: Query<Entity , With<WaitingText>>
+    waiting_text_entity_query: Query<Entity, With<WaitingText>>,
 ) {
     let mut graph = AnimationGraph::new();
     let animations = graph
@@ -569,7 +550,6 @@ pub fn handle_player_spawn_event_system(
     }
     if let Ok(entity) = waiting_text_entity_query.get_single() {
         commands.entity(entity).despawn_recursive();
-      
 
         println!("got something : {}", entity);
         // waiting_entity.0 = None;
@@ -912,6 +892,7 @@ pub fn spawn_world_model(
                 ..default()
             },
             MiniMapPlayer,
+            // Collider::cuboid(1., 1.,1.)  
         ))
         .id();
     commands.entity(mini_map_parent).push_children(&[p]);
@@ -931,7 +912,7 @@ pub fn spawn_world_model(
                         ..default()
                     },
                     Wall,
-                    Collider {
+                    Collide {
                         size: Vec3::new(1.0, 1.0, 1.0),
                     },
                 ));
@@ -1058,7 +1039,7 @@ pub fn spawn_projectile_by_projectile_properties(
         ..Default::default()
     });
     commands.spawn((
-        projectile,
+        projectile.clone(),
         MaterialMeshBundle {
             mesh: projectile_mesh,
             material: projectile_material,
@@ -1069,8 +1050,46 @@ pub fn spawn_projectile_by_projectile_properties(
             },
             ..Default::default()
         },
+        Collider::cylinder(2.0 / 2.0, 0.05), // Hauteur de 2.0, Rayon de 0.05
+        RigidBody::Dynamic,
+        Velocity::linear(projectile.direction * projectile.speed),
+        ActiveCollisionTypes::default(),
+        ActiveEvents::COLLISION_EVENTS,
     ));
     // spawn_projectile(commands, meshes, materials, projectile);
+}
+pub fn detect_collision(
+    mut commands: Commands,
+    mut collision_events: EventReader<CollisionEvent>,
+     player_query: Query<Entity, With<PlayerBody>>,
+    projectile_query: Query<(Entity, &Projectile)>,
+) {
+    for collision_event in collision_events.read() {
+        match collision_event {
+            CollisionEvent::Started(entity1, entity2, _) => {
+                // Check if the collision involves the player
+                if let Ok(player_entity) = player_query.get_single() {
+                    let (projectile_entity, _) = if projectile_query.get(*entity1).is_ok() {
+                        (*entity1, *entity2)
+                    } else if projectile_query.get(*entity2).is_ok() {
+                        (*entity2, *entity1)
+                    } else {
+                        continue;
+                    };
+
+                    // If the player is involved in the collision
+                    if *entity1 == player_entity || *entity2 == player_entity {
+                        // Handle collision, e.g., remove the projectile and decrease player's health
+                        println!("Player hit by a projectile!");
+
+                        // Remove the projectile entity
+                        commands.entity(projectile_entity).despawn();
+                    }
+                }
+            }
+            CollisionEvent::Stopped(_, _, _) => {}
+        }
+    }
 }
 pub fn shoot_system(
     mouse_button_input: Res<ButtonInput<MouseButton>>,

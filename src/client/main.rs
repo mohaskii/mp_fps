@@ -3,6 +3,7 @@ use std::{
     net::{SocketAddrV4, UdpSocket},
     time::SystemTime,
 };
+use bevy_rapier3d::prelude::*;
 
 use bevy::{
     app::{App, Startup, Update},
@@ -54,7 +55,10 @@ fn main() {
         DefaultPlugins,
         MapPlugin,
         UiPlugin,
+        RapierPhysicsPlugin::<NoUserData>::default(),
+        RapierDebugRenderPlugin::default()
     ));
+
     app.add_plugins(FpsOverlayPlugin {
         config: FpsOverlayConfig {
             text_config: TextStyle {
@@ -121,7 +125,8 @@ fn main() {
             shoot_system, // Système pour tirer
             projectile_movement_system,
             handle_shoot_event_system,
-            collision_detection_system_for_cube_and_projectile, // handle_camera,
+            detect_collision, 
+            // handle_camera,           
         )
             .chain()
             .run_if(in_state(GameState::Playing).or_else(in_state(GameState::GameStarted))),

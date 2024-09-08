@@ -19,7 +19,7 @@ pub struct MenuElement;
 pub struct PlayButton;
 #[derive(Component)]
 pub struct MiniMapPlayer;
-#[derive(Component)]
+#[derive(Component, Clone)]
 pub struct Projectile {
     pub direction: Vec3,
     pub speed: f32,
