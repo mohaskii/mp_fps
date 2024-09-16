@@ -24,7 +24,7 @@ use crate::{
     resources::{MyClientId, PlayerEntities},
     systems::{
         handle_lobby_sync_event_system, handle_player_spawn_event_system, receive_message_system,
-        send_message_system, setup_system, update_player_movement_system,
+        send_message_system, setup_system, update_player_movement_system, prompt
     },
 };
 
@@ -80,6 +80,7 @@ fn main() {
         .nth(1)
         .unwrap_or_else(|| "127.0.0.1:5000".to_string());
     let server_address: SocketAddrV4 = server_address.parse().expect("Invalid server address");
+    let username = prompt("Enter your username: ");
 
     // renet client
     let client = RenetClient::new(ConnectionConfig::default());
