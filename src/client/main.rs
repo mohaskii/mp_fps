@@ -83,6 +83,7 @@ fn main() {
 
     // renet client
     let client = RenetClient::new(ConnectionConfig::default());
+   
     app.insert_resource(client);
 
     let starting_lives = Live(5);
@@ -99,7 +100,7 @@ fn main() {
         user_data: None,
         protocol_id: 0,
     };
-    let socket = UdpSocket::bind("127.0.0.1:0").unwrap();
+    let socket = UdpSocket::bind("0.0.0.0:0").unwrap();
     let current_time = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .unwrap();

@@ -26,7 +26,6 @@ pub fn send_message_system(mut server: ResMut<RenetServer>, player_lobby: Res<Pl
     let lobby = player_lobby.0.clone();
     let event = mp_fps::ServerMessage::LobbySync(lobby);
     let message = bincode::serialize(&event).unwrap();
-    // print_lobby(&player_lobby);
     server.broadcast_message(chanel, message);
 }
 
@@ -132,7 +131,6 @@ pub fn handle_events_system(
     for event in server_events.read() {
         match event {
             ServerEvent::ClientConnected { client_id } => {
-                println!("Client {client_id} connected");
                 let mut r = [0.0; 4];
                 Quat::default().write_to_slice(&mut r);
                 player_lobby.0.insert(
@@ -151,8 +149,10 @@ pub fn handle_events_system(
                     message,
                 );
             }
-            ServerEvent::ClientDisconnected { client_id, reason } => {
-                println!("Client {client_id} disconnected: {reason}");
+            ServerEvent::ClientDisconnected {
+                client_id,
+                reason: _,
+            } => {
                 player_lobby.0.remove(client_id);
                 let message =
                     bincode::serialize(&mp_fps::ServerMessage::PlayerLeave(*client_id)).unwrap();

@@ -154,7 +154,10 @@ pub fn update_player_movement_system(
 }
 
 pub fn apply_movement(
-    mut player_body_query: Query<&mut Transform, (With<PlayerBody>, Without<MyPlayer>, Without<MiniMapPlayer>)>,
+    mut player_body_query: Query<
+        &mut Transform,
+        (With<PlayerBody>, Without<MyPlayer>, Without<MiniMapPlayer>),
+    >,
     mut query: Query<&mut Transform, With<MyPlayer>>,
     mut minimap_player_query: Query<&mut Transform, (With<MiniMapPlayer>, Without<MyPlayer>)>,
     mut player_move_event: EventWriter<PlayerMoveEvent>,
@@ -226,9 +229,8 @@ pub fn spawn_text(mut commands: Commands, mut waiting_entity: ResMut<WaitingEnti
             ));
         })
         .id();
-    println!("ldsdkskdks");
+
     waiting_entity.0 = Some(we);
-    println!("this is the entity : {}", we);
     // commands.entity(We).despawn()
 }
 
@@ -245,6 +247,9 @@ pub fn move_player(
         // let mut r = [0.0; 4];
         let yaw = -motion.delta.x * 0.003;
         let pitch = -motion.delta.y * 0.002;
+        // if pitch.abs() > 0.0025000002 {
+        //     return;
+        // }
         // transform_to_send.rotate_y(yaw);
         // transform_to_send.rotate_local_x(-1. * pitch);
         // transform_to_send.rotate(Quat::from_rotation_y(PI));
@@ -255,7 +260,10 @@ pub fn move_player(
         // info!(" pitch: {}", pitch);
         // Order of rotations is important, see <https://gamedev.stackexchange.com/a/136175/103059>
         transform.rotate_y(yaw);
-        transform.rotate_local_x(pitch);
+
+        if transform.forward().y + pitch <= 0.3 && transform.forward().y + pitch >= -0.6 {
+            transform.rotate_local_x(pitch);
+        }
         // camera_transform.rotate_y(yaw);
         // camera_transform.rotate_local_x(    pitch);
         // p.0 = pitch;
@@ -339,7 +347,7 @@ pub fn setup_system(
     ass: Res<AssetServer>,
 ) {
     let arm = meshes.add(Cuboid::new(0.1, 0.1, 0.5));
-   
+
     let arm_material = materials.add(Color::from(tailwind::TEAL_200));
 
     // commands.spawn((
@@ -369,21 +377,20 @@ pub fn setup_system(
         .with_children(|parent| {
             //this is the camera of the global view
 
-                parent.spawn((
-                    WorldModelCamera,
-                    Camera3dBundle {
-                        projection: PerspectiveProjection {
-                            fov: 90.0_f32.to_radians(),
-                            ..default()
-                        }
-                        .into(),
-                        transform: Transform::from_xyz(-0.12, 0.5, 0.),
+            parent.spawn((
+                WorldModelCamera,
+                Camera3dBundle {
+                    projection: PerspectiveProjection {
+                        fov: 90.0_f32.to_radians(),
                         ..default()
-                    },
-                    RenderLayers::from_layers(&[VIEW_MODEL_RENDER_LAYER, DEFAULT_RENDER_LAYER]),
-                ));
+                    }
+                    .into(),
+                    transform: Transform::from_xyz(-0.12, 0.5, 0.),
+                    ..default()
+                },
+                RenderLayers::from_layers(&[VIEW_MODEL_RENDER_LAYER, DEFAULT_RENDER_LAYER]),
+            ));
 
-        
             let riffle = ass.load("m4_carbine_rifle.glb#Scene0");
             parent.spawn((
                 SceneBundle {
@@ -501,7 +508,6 @@ pub fn handle_player_spawn_event_system(
     if let Ok(entity) = waiting_text_entity_query.get_single() {
         commands.entity(entity).despawn_recursive();
 
-        println!("got something : {}", entity);
         // waiting_entity.0 = None;
     }
 }
@@ -842,7 +848,7 @@ pub fn spawn_world_model(
                 ..default()
             },
             MiniMapPlayer,
-            // Collider::cuboid(1., 1.,1.)  
+            // Collider::cuboid(1., 1.,1.)
         ))
         .id();
     commands.entity(mini_map_parent).push_children(&[p]);
@@ -906,7 +912,6 @@ pub fn spawn_projectile(
     match player_transform {
         Ok(_) => {}
         Err(e) => {
-            println!("error:{:?}", e);
             return;
         }
     }
@@ -1011,7 +1016,7 @@ pub fn spawn_projectile_by_projectile_properties(
 pub fn detect_collision(
     mut commands: Commands,
     mut collision_events: EventReader<CollisionEvent>,
-     player_query: Query<Entity, With<PlayerBody>>,
+    player_query: Query<Entity, With<PlayerBody>>,
     projectile_query: Query<(Entity, &Projectile)>,
     mut live: ResMut<Live>,
     mut next_state: ResMut<NextState<GameState>>,
@@ -1032,7 +1037,6 @@ pub fn detect_collision(
                     // If the player is involved in the collision
                     if *entity1 == player_entity || *entity2 == player_entity {
                         // Handle collision, e.g., remove the projectile and decrease player's health
-                        println!("Player hit by a projectile!");
                         live.0 -= 1; // On diminue la vie du joueur
                         if live.0 <= 0 {
                             next_state.set(GameState::Game0ver);
@@ -1057,8 +1061,7 @@ pub fn shoot_system(
     client: ResMut<RenetClient>,
 ) {
     if mouse_button_input.just_pressed(MouseButton::Left) {
-        // Tirer un projectile
-        println!("Pew!");
+        // Tirer un projectile;
         spawn_projectile(commands, meshes, materials, player_query, client);
     }
 }
@@ -1124,7 +1127,6 @@ pub fn collision_detection_system_for_cube_and_projectile(
             Vec3::new(0.3, 1.4, 0.3),
             projectile_transform.translation,
         ) {
-            println!("Collision détectée !");
             live.0 -= 1; // On diminue la vie du joueur
             if live.0 <= 0 {
                 next_state.set(GameState::Game0ver);
