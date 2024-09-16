@@ -30,7 +30,7 @@ mod states;
 mod systems;
 use event::ShootEvent;
 use states::ServerState;
-const SERVER_ADDR: &str = "127.0.0.1:5000";
+const SERVER_ADDR: &str = "0.0.0.0:5000";
 
 fn main() {
     let mut app = App::new();

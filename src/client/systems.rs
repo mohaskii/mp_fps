@@ -1,4 +1,4 @@
-use std::{f32::consts::PI, time::Duration};
+use std::{f32::consts::PI, io::{self, Write}, time::Duration};
 
 use crate::{
     components::{MenuElement, MiniMapPlayer, PlayButton, PlayerBody, Projectile, WaitingText},
@@ -1164,4 +1164,21 @@ pub fn player_animation(
 pub fn despawn_player(entity: Entity, commands: &mut Commands) {
     //despawn_player
     commands.entity(entity).despawn();
+}
+
+pub fn prompt(message: &str) -> String {
+    loop {
+        print!("{}", message);
+        io::stdout().flush().unwrap();
+
+        let mut input = String::new();
+        io::stdin().read_line(&mut input).unwrap();
+
+        let trimmed_input = input.trim().to_string();
+        if !trimmed_input.is_empty() {
+            return trimmed_input;
+        } else {
+            println!("Username cannot be empty. Please try again.");
+        }
+    }
 }
