@@ -28,6 +28,7 @@ use bevy::{
     math::{
         primitives::{Cuboid, Plane3d},
         Vec3,
+        Quat,
     },
     pbr::{MaterialMeshBundle, StandardMaterial},
     prelude::*,
@@ -381,7 +382,7 @@ pub fn setup_system(
                 WorldModelCamera,
                 Camera3dBundle {
                     projection: PerspectiveProjection {
-                        fov: 90.0_f32.to_radians(),
+                        fov: 70.0_f32.to_radians(),
                         ..default()
                     }
                     .into(),
@@ -512,11 +513,12 @@ pub fn handle_player_spawn_event_system(
     }
 }
 
+
 pub fn handle_lobby_sync_event_system(
     mut spawn_events: EventWriter<PlayerSpawnEvent>,
     mut sync_events: EventReader<LobbySyncEvent>,
     mut query: Query<(&PlayerEntity, &mut Transform)>,
-    my_clinet_id: Res<MyClientId>,
+    my_client_id: Res<MyClientId>,
 ) {
     let event_option = sync_events.read().last();
     if event_option.is_none() {
@@ -525,7 +527,7 @@ pub fn handle_lobby_sync_event_system(
     let event = event_option.unwrap();
 
     for (client_id, player_sync) in event.0.iter() {
-        if *client_id == my_clinet_id.0 {
+        if *client_id == my_client_id.0 {
             continue;
         }
 
@@ -534,17 +536,22 @@ pub fn handle_lobby_sync_event_system(
             if *client_id == player_entity.0 {
                 let new_position = player_sync.position;
                 let new_rotation = player_sync.rotation;
-                // let x_rotation = Quat::from_rotation_x(-2. * player_sync.pitch);
+                
                 transform.translation = new_position.into();
 
-                transform.rotation = Quat::from_array(new_rotation);
-                transform.rotate_y(PI);
+                // Convertir le quaternion en angles d'Euler
+                let (yaw, pitch, roll) = Quat::from_array(new_rotation).to_euler(EulerRot::YXZ);
 
-                // transform.rotation *= x_rotation;
-                // transform.
-                // transform.rotate(Quat::from_rotation_x(-player_sync.pitch));
-                // transform.rotate_ = -transform.rotate_local;
-                // transform.rotate_local_x(player_sync.pitch);
+                // Inverser le pitch et recréer le quaternion
+                let corrected_quat = Quat::from_euler(EulerRot::YXZ, yaw, -0.0, roll);
+
+                // Appliquer la rotation
+                transform.rotation = corrected_quat;
+                
+                // Rotation de 180 degrés autour de l'axe Y pour faire face à la bonne direction
+                transform.rotate_y(std::f32::consts::PI);
+
+                // Assurez-vous que le joueur reste au niveau du sol
                 transform.translation.y = 0.;
 
                 found = true;
